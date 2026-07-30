@@ -40,6 +40,9 @@ export default function ApplicationList() {
             Track all candidate applications ({applications.length} total)
           </p>
         </div>
+        <Link to="/applications/new" className="btn btn-primary" style={{ height: 'fit-content' }}>
+          + Create Application
+        </Link>
       </div>
 
       <div className="card">
