@@ -27,6 +27,7 @@ import OrganizationSetup from './components/OrganizationSetup';
 import TeamPage from './components/TeamPage';
 import AIBatchSetup from './components/AIBatchSetup';
 import BatchDashboard from './components/BatchDashboard';
+import SystemCheck from './components/SystemCheck';
 
 function RequireAuth({ children }) {
   const { user, loading } = useContext(AuthContext);
@@ -58,6 +59,7 @@ function AppRoutes() {
       <Route path="/user/dashboard" element={<RequireAuth><UserDashboard /></RequireAuth>} />
 
       <Route path="/org/setup" element={<OrganizationSetup />} />
+      <Route path="/system-check" element={<SystemCheck />} />
       <Route path="/interview" element={<InterviewLauncher />} />
       <Route path="/interview/setup/demo" element={<InterviewLauncher />} />
       <Route path="/interview/setup/:applicationId" element={<InterviewSetup />} />

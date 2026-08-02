@@ -438,6 +438,11 @@ export default function AiAgentInterview() {
       if (!startRes.ok) {
         const errData = await startRes.json().catch(() => ({}));
         hasStartedRef.current = false;
+        if (errData.slotClosed) {
+          setError(errData.error || 'Your interview slot has ended. Please contact the recruiter.');
+          setPhase('error');
+          return;
+        }
         setError(errData.error || 'Interview cannot start yet');
         setPhase('waiting');
         startWaitTimer(data);
@@ -468,6 +473,15 @@ export default function AiAgentInterview() {
       setPhase('error');
     }
   }, [interviewId, startMic]);
+  beginRef.current = beginInterview;
+
+  useEffect(() => {
+    if (phase === 'active' && elapsedSeconds >= 1800) {
+      setPhase('complete');
+      phaseRef.current = 'complete';
+      fetch(`${API_URL}/api/interview/${interviewId}/end`, { method: 'POST', headers: { ...authHeaders() } }).catch(() => {});
+    }
+  }, [phase, elapsedSeconds, interviewId]);
 
   const startWaitTimer = useCallback((data) => {
     if (waitTimerRef.current) clearInterval(waitTimerRef.current);
@@ -483,13 +497,15 @@ export default function AiAgentInterview() {
       setWaitSeconds(Math.max(0, diff));
       if (diff <= 0) {
         setWaitSeconds(0);
-        setPhase('check');
         if (waitTimerRef.current) clearInterval(waitTimerRef.current);
+        setTimeout(() => { if (!hasStartedRef.current) beginRef.current?.(data); }, 500);
       }
     };
     tick();
     waitTimerRef.current = setInterval(tick, 1000);
   }, []);
+
+  const beginRef = useRef(null);
 
   useEffect(() => {
     if (isMonitor) {
@@ -543,13 +559,6 @@ export default function AiAgentInterview() {
 
         if (data.status === 'COMPLETED') {
           setPhase('complete');
-          return;
-        }
-
-        const sched = data.scheduledAt ? new Date(data.scheduledAt) : null;
-        if (sched && !isNaN(sched.getTime()) && sched.getTime() > Date.now()) {
-          setPhase('waiting');
-          startWaitTimer(data);
           return;
         }
 
