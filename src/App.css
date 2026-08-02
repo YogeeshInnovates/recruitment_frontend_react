@@ -2234,3 +2234,128 @@ tr:hover td {
 @media (max-width: 640px) {
   .tp-invite-form { flex-direction: column; }
 }
+
+/* ---------- AI Batch Setup Wizard ---------- */
+.abs-page {
+  min-height: calc(100vh - 80px);
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding: 32px 20px;
+  background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+}
+.abs-card {
+  background: #ffffff;
+  border-radius: 16px;
+  padding: 40px;
+  max-width: 680px;
+  width: 100%;
+  box-shadow: 0 25px 50px rgba(0, 0, 0, 0.25);
+}
+.abs-header { text-align: center; margin-bottom: 28px; }
+.abs-logo {
+  width: 64px; height: 64px; border-radius: 16px;
+  background: linear-gradient(135deg, #7c3aed, #6366f1);
+  display: flex; align-items: center; justify-content: center;
+  margin: 0 auto 16px; font-size: 28px; color: white;
+}
+.abs-title { font-size: 26px; font-weight: 700; color: #0f172a; margin: 0 0 8px; }
+.abs-subtitle { color: #64748b; font-size: 15px; margin: 0; }
+.abs-result-icon { font-size: 48px; text-align: center; margin-bottom: 12px; }
+.abs-ok { color: #059669; font-weight: 600; text-align: center; margin: 0 0 20px; }
+.abs-warn { color: #b45309; font-weight: 600; text-align: center; margin: 0 0 20px; }
+
+.abs-steps {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 28px;
+}
+.abs-step { display: flex; align-items: center; gap: 6px; opacity: 0.45; }
+.abs-step.active { opacity: 1; }
+.abs-step.done { opacity: 0.7; }
+.abs-step-num {
+  width: 26px; height: 26px; border-radius: 50%;
+  background: #e2e8f0; color: #64748b;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 13px; font-weight: 700;
+}
+.abs-step.active .abs-step-num { background: #7c3aed; color: #fff; }
+.abs-step.done .abs-step-num { background: #10b981; color: #fff; }
+.abs-step-label { font-size: 13px; color: #0f172a; font-weight: 600; }
+.abs-step + .abs-step::before {
+  content: ''; width: 28px; height: 2px;
+  background: #e2e8f0; margin: 0 4px;
+}
+
+.abs-error {
+  background: #fef2f2; border: 1px solid #fecaca;
+  border-radius: 8px; padding: 12px 16px; margin-bottom: 20px;
+  color: #dc2626; font-size: 14px;
+}
+.abs-field-label {
+  font-weight: 600; color: #0f172a; font-size: 14px; margin-bottom: 8px;
+}
+.abs-input {
+  width: 100%; padding: 12px 16px;
+  border: 1px solid #e2e8f0; border-radius: 10px;
+  font-size: 14px; font-family: inherit; outline: none;
+  box-sizing: border-box;
+}
+.abs-input:focus { border-color: #7c3aed; box-shadow: 0 0 0 3px rgba(124, 58, 237, 0.15); }
+.abs-textarea {
+  width: 100%; padding: 12px 16px;
+  border: 1px solid #e2e8f0; border-radius: 10px;
+  font-size: 14px; resize: vertical;
+  font-family: inherit; outline: none; box-sizing: border-box;
+}
+.abs-textarea:focus { border-color: #7c3aed; box-shadow: 0 0 0 3px rgba(124, 58, 237, 0.15); }
+
+.abs-drop {
+  border: 2px dashed #e2e8f0; border-radius: 10px;
+  padding: 32px 20px; text-align: center; cursor: pointer;
+  background: #f8fafc; transition: all 0.2s;
+}
+.abs-drop.over { border-color: #7c3aed; background: #f5f3ff; }
+.abs-drop-icon { font-size: 26px; margin-bottom: 8px; }
+.abs-drop-text { font-weight: 600; color: #0f172a; }
+.abs-drop-hint { font-size: 13px; color: #64748b; margin-top: 4px; }
+
+.abs-file-list { margin-top: 16px; display: flex; flex-direction: column; gap: 8px; }
+.abs-file-item {
+  display: flex; align-items: center; gap: 10px;
+  background: #f8fafc; border: 1px solid #e2e8f0;
+  border-radius: 10px; padding: 10px 14px;
+}
+.abs-file-item-icon { font-size: 18px; }
+.abs-file-item-name { font-weight: 600; color: #0f172a; flex: 1; font-size: 14px; word-break: break-all; }
+.abs-file-item-size { font-size: 12px; color: #64748b; }
+.abs-file-remove {
+  background: #fee2e2; border: none; color: #dc2626;
+  width: 26px; height: 26px; border-radius: 50%;
+  cursor: pointer; font-size: 12px; line-height: 1;
+}
+
+.abs-actions {
+  display: flex; justify-content: flex-end; gap: 12px;
+  margin-top: 28px;
+}
+.abs-actions .btn { min-width: 140px; justify-content: center; }
+
+.abs-table-wrap { overflow-x: auto; margin-top: 20px; }
+.abs-table {
+  width: 100%; border-collapse: collapse; font-size: 14px;
+}
+.abs-table th {
+  text-align: left; padding: 10px 12px;
+  background: #f8fafc; color: #64748b;
+  font-size: 12px; text-transform: uppercase; letter-spacing: 0.03em;
+  border-bottom: 1px solid #e2e8f0;
+}
+.abs-table td {
+  padding: 10px 12px; border-bottom: 1px solid #f1f5f9; color: #334155;
+}
+.abs-file { font-weight: 500; color: #0f172a; }
+.abs-name { font-weight: 700; color: #0f172a; }
+.abs-skills { font-size: 13px; color: #7c3aed; }

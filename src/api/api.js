@@ -62,6 +62,14 @@ const api = {
       headers: { ...authHeaders() }
     });
     return handle(res, path, 'DELETE');
+  },
+  upload: async (path, formData) => {
+    const res = await fetch(`${BASE_URL}${path}`, {
+      method: 'POST',
+      headers: { ...authHeaders() },
+      body: formData
+    });
+    return handle(res, path, 'POST');
   }
 };
 

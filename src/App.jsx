@@ -25,6 +25,7 @@ import AiAgentInterview from './components/AiAgentInterview';
 import InterviewResults from './components/InterviewResults';
 import OrganizationSetup from './components/OrganizationSetup';
 import TeamPage from './components/TeamPage';
+import AIBatchSetup from './components/AIBatchSetup';
 
 function RequireAuth({ children }) {
   const { user, loading } = useContext(AuthContext);
@@ -74,6 +75,7 @@ function AppRoutes() {
         <Route path="/applications/new" element={<ApplicationForm />} />
         <Route path="/applications/:appId" element={<ApplicationDetail />} />
         <Route path="/team" element={<TeamPage />} />
+        <Route path="/interview/batch" element={<AIBatchSetup />} />
       </Route>
     </Routes>
   );
