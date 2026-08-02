@@ -17,7 +17,15 @@ export default function OrganizationSetup() {
     website: '',
     email: '',
     phone: '',
-    address: ''
+    address: '',
+    city: '',
+    state: '',
+    postalCode: '',
+    gstNumber: '',
+    cinNumber: '',
+    legalEntityType: '',
+    companySize: '',
+    foundedYear: ''
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -126,7 +134,7 @@ export default function OrganizationSetup() {
                 name="phone"
                 value={form.phone}
                 onChange={handleChange}
-                placeholder="+1 234 567 890"
+                placeholder="+91 98765 43210"
               />
             </div>
             <div className="form-group">
@@ -136,7 +144,100 @@ export default function OrganizationSetup() {
                 name="address"
                 value={form.address}
                 onChange={handleChange}
-                placeholder="123 Main St, City"
+                placeholder="123 Main St"
+              />
+            </div>
+          </div>
+          <div className="form-row">
+            <div className="form-group">
+              <label>City</label>
+              <input
+                type="text"
+                name="city"
+                value={form.city}
+                onChange={handleChange}
+                placeholder="Mumbai"
+              />
+            </div>
+            <div className="form-group">
+              <label>State</label>
+              <input
+                type="text"
+                name="state"
+                value={form.state}
+                onChange={handleChange}
+                placeholder="Maharashtra"
+              />
+            </div>
+          </div>
+          <div className="form-row">
+            <div className="form-group">
+              <label>Postal Code</label>
+              <input
+                type="text"
+                name="postalCode"
+                value={form.postalCode}
+                onChange={handleChange}
+                placeholder="400001"
+              />
+            </div>
+            <div className="form-group">
+              <label>Founded Year</label>
+              <input
+                type="number"
+                min="1900"
+                max="2026"
+                name="foundedYear"
+                value={form.foundedYear}
+                onChange={handleChange}
+                placeholder="2015"
+              />
+            </div>
+          </div>
+          <div className="form-row">
+            <div className="form-group">
+              <label>Legal Entity Type</label>
+              <select name="legalEntityType" value={form.legalEntityType} onChange={handleChange}>
+                <option value="">Select type</option>
+                <option value="Private Limited">Private Limited</option>
+                <option value="LLP">LLP</option>
+                <option value="Public Limited">Public Limited</option>
+                <option value="Proprietorship">Proprietorship</option>
+                <option value="Partnership">Partnership</option>
+                <option value="Other">Other</option>
+              </select>
+            </div>
+            <div className="form-group">
+              <label>Company Size</label>
+              <select name="companySize" value={form.companySize} onChange={handleChange}>
+                <option value="">Select size</option>
+                <option value="1-10">1-10</option>
+                <option value="11-50">11-50</option>
+                <option value="51-200">51-200</option>
+                <option value="201-500">201-500</option>
+                <option value="500+">500+</option>
+              </select>
+            </div>
+          </div>
+          <div className="form-row">
+            <div className="form-group">
+              <label>GST Number</label>
+              <input
+                type="text"
+                name="gstNumber"
+                value={form.gstNumber}
+                onChange={handleChange}
+                placeholder="27AAACM1234F1Z5"
+              />
+            </div>
+            <div className="form-group">
+              <label>CIN / Registration Number</label>
+              <input
+                type="text"
+                name="cinNumber"
+                value={form.cinNumber}
+                onChange={handleChange}
+                placeholder="U12345MH2015PTC000000"
               />
             </div>
           </div>

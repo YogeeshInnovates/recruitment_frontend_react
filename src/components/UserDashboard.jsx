@@ -19,7 +19,10 @@ export default function UserDashboard() {
   const [creating, setCreating] = useState(false);
   const [showForm, setShowForm] = useState(false);
   const [orgData, setOrgData] = useState({
-    name: '', description: '', industry: '', website: '', email: '', phone: '', address: '', industryOther: ''
+    name: '', description: '', industry: '', website: '', email: '', phone: '',
+    address: '', city: '', state: '', postalCode: '', gstNumber: '',
+    cinNumber: '', legalEntityType: '', companySize: '', foundedYear: '',
+    industryOther: ''
   });
 
   const initials = user?.name
@@ -146,13 +149,68 @@ export default function UserDashboard() {
                 </div>
                 <div className="ud-org-field">
                   <label>Address</label>
-                  <input type="text" value={orgData.address} onChange={e => updateOrgField('address', e.target.value)} placeholder="123 Main St, City, Country" />
+                  <input type="text" value={orgData.address} onChange={e => updateOrgField('address', e.target.value)} placeholder="123 Main St" />
+                </div>
+                <div className="ud-org-row">
+                  <div className="ud-org-field">
+                    <label>City</label>
+                    <input type="text" value={orgData.city} onChange={e => updateOrgField('city', e.target.value)} placeholder="Mumbai" />
+                  </div>
+                  <div className="ud-org-field">
+                    <label>State</label>
+                    <input type="text" value={orgData.state} onChange={e => updateOrgField('state', e.target.value)} placeholder="Maharashtra" />
+                  </div>
+                </div>
+                <div className="ud-org-row">
+                  <div className="ud-org-field">
+                    <label>Postal Code</label>
+                    <input type="text" value={orgData.postalCode} onChange={e => updateOrgField('postalCode', e.target.value)} placeholder="400001" />
+                  </div>
+                  <div className="ud-org-field">
+                    <label>Founded Year</label>
+                    <input type="number" min="1900" max="2026" value={orgData.foundedYear} onChange={e => updateOrgField('foundedYear', e.target.value)} placeholder="2015" />
+                  </div>
+                </div>
+                <div className="ud-org-row">
+                  <div className="ud-org-field">
+                    <label>Legal Entity Type</label>
+                    <select value={orgData.legalEntityType} onChange={e => updateOrgField('legalEntityType', e.target.value)}>
+                      <option value="" disabled>Select type</option>
+                      <option value="Private Limited">Private Limited</option>
+                      <option value="LLP">LLP</option>
+                      <option value="Public Limited">Public Limited</option>
+                      <option value="Proprietorship">Proprietorship</option>
+                      <option value="Partnership">Partnership</option>
+                      <option value="Other">Other</option>
+                    </select>
+                  </div>
+                  <div className="ud-org-field">
+                    <label>Company Size</label>
+                    <select value={orgData.companySize} onChange={e => updateOrgField('companySize', e.target.value)}>
+                      <option value="" disabled>Select size</option>
+                      <option value="1-10">1-10</option>
+                      <option value="11-50">11-50</option>
+                      <option value="51-200">51-200</option>
+                      <option value="201-500">201-500</option>
+                      <option value="500+">500+</option>
+                    </select>
+                  </div>
+                </div>
+                <div className="ud-org-row">
+                  <div className="ud-org-field">
+                    <label>GST Number</label>
+                    <input type="text" value={orgData.gstNumber} onChange={e => updateOrgField('gstNumber', e.target.value)} placeholder="27AAACM1234F1Z5" />
+                  </div>
+                  <div className="ud-org-field">
+                    <label>CIN / Registration Number</label>
+                    <input type="text" value={orgData.cinNumber} onChange={e => updateOrgField('cinNumber', e.target.value)} placeholder="U12345MH2015PTC000000" />
+                  </div>
                 </div>
                 <div className="ud-org-actions">
                   <button className="btn btn-primary" onClick={handleCreateOrg} disabled={creating || !orgData.name.trim()}>
                     {creating ? 'Creating...' : 'Create Organization'}
                   </button>
-                  <button className="btn btn-outline" onClick={() => { setShowForm(false); setOrgData({ name: '', description: '', industry: '', website: '', email: '', phone: '', address: '', industryOther: '' }); }}>
+                  <button className="btn btn-outline" onClick={() => { setShowForm(false); setOrgData({ name: '', description: '', industry: '', website: '', email: '', phone: '', address: '', city: '', state: '', postalCode: '', gstNumber: '', cinNumber: '', legalEntityType: '', companySize: '', foundedYear: '', industryOther: '' }); }}>
                     Cancel
                   </button>
                 </div>
