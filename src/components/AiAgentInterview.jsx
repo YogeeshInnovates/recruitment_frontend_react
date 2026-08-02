@@ -48,7 +48,6 @@ export default function AiAgentInterview() {
   const [candidateSpeech, setCandidateSpeech] = useState('');
   const [showSubtitle, setShowSubtitle] = useState('');
   const [connectionStatus, setConnectionStatus] = useState('Initializing...');
-  const [interviewScore, setInterviewScore] = useState(0);
   const [currentDifficulty, setCurrentDifficulty] = useState('Medium');
   const [isFinished, setIsFinished] = useState(false);
   const [countdown, setCountdown] = useState(null);
@@ -234,7 +233,6 @@ export default function AiAgentInterview() {
       if (!res.ok) throw new Error('Chat failed');
       const data = await res.json();
       const aiReply = data.response || '';
-      if (data.running_score !== undefined) setInterviewScore(data.running_score);
       if (data.current_difficulty) setCurrentDifficulty(data.current_difficulty);
       if (data.is_finished) setIsFinished(true);
 
@@ -515,10 +513,6 @@ export default function AiAgentInterview() {
             <p style={{ color: '#94a3b8', marginBottom: 20 }}>Thank you for your time!</p>
             <div style={{ display: 'flex', gap: 24, marginBottom: 24 }}>
               <div style={{ textAlign: 'center' }}>
-                <div style={{ fontSize: 32, fontWeight: 700, color: '#10b981' }}>{interviewScore}</div>
-                <div style={{ fontSize: 12, color: '#94a3b8' }}>Score</div>
-              </div>
-              <div style={{ textAlign: 'center' }}>
                 <div style={{ fontSize: 32, fontWeight: 700, color: '#8b5cf6' }}>{currentDifficulty}</div>
                 <div style={{ fontSize: 12, color: '#94a3b8' }}>Level</div>
               </div>
@@ -530,7 +524,7 @@ export default function AiAgentInterview() {
             <button onClick={() => {
               const conv = messages.filter(m => m.role === 'ai' || m.role === 'candidate')
                 .map(m => `${m.role === 'ai' ? '🤖' : '👤'}: ${m.content}`).join('\n\n');
-              const blob = new Blob([`Interview Transcript\n\nScore: ${interviewScore}\nDifficulty: ${currentDifficulty}\nQuestions: ${questionCount}\n\n${conv}`], {type: 'text/plain'});
+              const blob = new Blob([`Interview Transcript\n\nDifficulty: ${currentDifficulty}\nQuestions: ${questionCount}\n\n${conv}`], {type: 'text/plain'});
               const url = URL.createObjectURL(blob);
               const a = document.createElement('a');
               a.href = url; a.download = `interview-${interviewId}.txt`; a.click();
