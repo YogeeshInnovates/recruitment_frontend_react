@@ -143,7 +143,13 @@ export default function AIBatchSetup() {
                     <td>{c.experience || '—'}</td>
                     <td className="abs-skills">{c.skills || '—'}</td>
                     <td>
-                      {c.scheduledDate && c.scheduledTime ? (
+                      {c.scheduledAt ? (
+                        <span className="abs-slot">
+                          {new Date(c.scheduledAt).toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' })}
+                          <br />
+                          {new Date(c.scheduledAt).toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' })}
+                        </span>
+                      ) : c.scheduledDate && c.scheduledTime ? (
                         <span className="abs-slot">{c.scheduledDate}<br />{c.scheduledTime}</span>
                       ) : (
                         '—'

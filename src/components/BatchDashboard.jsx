@@ -126,8 +126,8 @@ export default function BatchDashboard() {
                         <div className="bd-round">{r.round}</div>
                       </td>
                       <td>
-                        <div className="bd-date">{r.scheduledDate}</div>
-                        <div className="bd-time">{r.scheduledTime}</div>
+                        <div className="bd-date">{r.scheduledAt ? new Date(r.scheduledAt).toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' }) : (r.scheduledDate || '')}</div>
+                        <div className="bd-time">{r.scheduledAt ? new Date(r.scheduledAt).toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' }) : (r.scheduledTime || '')}</div>
                       </td>
                       <td>
                         <span className={`bd-status bd-${st}`}>
