@@ -1,6 +1,7 @@
 import { useState, useContext } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { AuthContext } from '../context/AuthContext';
+import { hasStaffRole } from '../utils/roles';
 
 export default function LoginPage() {
   const { login } = useContext(AuthContext);
@@ -16,7 +17,7 @@ export default function LoginPage() {
     setSubmitting(true);
     try {
       const data = await login(email, password);
-      const isRecruiter = data.memberships?.some(m => m.role === 'RECRUITER');
+      const isRecruiter = hasStaffRole(data.memberships);
       navigate(isRecruiter ? '/dashboard' : '/user/dashboard', { replace: true });
     } catch (err) {
       setError(err.message || 'Login failed. Please try again.');

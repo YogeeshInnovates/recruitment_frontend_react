@@ -1,6 +1,7 @@
 import { useState, useContext } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { AuthContext } from '../context/AuthContext';
+import { hasStaffRole } from '../utils/roles';
 
 export default function SignupPage() {
   const { signup } = useContext(AuthContext);
@@ -17,7 +18,7 @@ export default function SignupPage() {
     setSubmitting(true);
     try {
       const data = await signup(name, email, password);
-      const isRecruiter = data.memberships?.some(m => m.role === 'RECRUITER');
+      const isRecruiter = hasStaffRole(data.memberships);
       navigate(isRecruiter ? '/dashboard' : '/user/dashboard', { replace: true });
     } catch (err) {
       setError(err.message || 'Sign up failed. Please try again.');

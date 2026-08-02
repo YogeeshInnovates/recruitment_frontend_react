@@ -1,5 +1,6 @@
 import { createContext, useState, useMemo, useCallback, useEffect } from 'react';
 import api from '../api/api';
+import { hasStaffRole } from '../utils/roles';
 
 export const AuthContext = createContext(null);
 
@@ -56,7 +57,7 @@ export function AuthProvider({ children }) {
 
   const isRecruiter = useMemo(() => {
     if (!user) return false;
-    return user.memberships?.some(m => m.role === 'RECRUITER') ?? false;
+    return hasStaffRole(user.memberships);
   }, [user]);
 
   const firstOrgId = useMemo(() => {
