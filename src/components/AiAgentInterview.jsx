@@ -3,6 +3,17 @@ import { useParams, useNavigate } from 'react-router-dom';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8080';
 
+function authHeaders() {
+  try {
+    const raw = localStorage.getItem('recruit_user');
+    if (raw) {
+      const user = JSON.parse(raw);
+      if (user?.token) return { 'Authorization': `Bearer ${user.token}` };
+    }
+  } catch { /* ignore */ }
+  return {};
+}
+
 function speak(text) {
   return new Promise((resolve) => {
     if (!window.speechSynthesis) { resolve(); return; }
@@ -209,7 +220,7 @@ export default function AiAgentInterview() {
       setShowSubtitle('');
       setPhase('complete');
       phaseRef.current = 'complete';
-      try { await fetch(`${API_URL}/api/interview/${interviewId}/end`, { method: 'POST' }); } catch (e) {}
+      try { await fetch(`${API_URL}/api/interview/${interviewId}/end`, { method: 'POST', headers: { ...authHeaders() } }); } catch (e) {}
       return;
     }
 
@@ -222,7 +233,7 @@ export default function AiAgentInterview() {
     try {
       const res = await fetch(`${API_URL}/api/interview/${interviewId}/chat`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...authHeaders() },
         body: JSON.stringify({
           message: userMessage,
           conversationHistory: newHistory,
@@ -256,7 +267,7 @@ export default function AiAgentInterview() {
           setPhase('complete');
           phaseRef.current = 'complete';
           try {
-            await fetch(`${API_URL}/api/interview/${interviewId}/end`, { method: 'POST' });
+            await fetch(`${API_URL}/api/interview/${interviewId}/end`, { method: 'POST', headers: { ...authHeaders() } });
           } catch (e) {}
           setTimeout(() => navigate('/'), 30000);
           return;
@@ -374,13 +385,13 @@ export default function AiAgentInterview() {
     const init = async () => {
       try {
         setConnectionStatus('Connecting to interview...');
-        const res = await fetch(`${API_URL}/api/interview/${interviewId}`);
+        const res = await fetch(`${API_URL}/api/interview/${interviewId}`, { headers: { ...authHeaders() } });
         if (!res.ok) throw new Error('Interview not found');
         const data = await res.json();
         setInterviewData(data);
 
         setConnectionStatus('Starting interview session...');
-        await fetch(`${API_URL}/api/interview/${interviewId}/start`, { method: 'POST' });
+        await fetch(`${API_URL}/api/interview/${interviewId}/start`, { method: 'POST', headers: { ...authHeaders() } });
 
         await new Promise(r => setTimeout(r, 2000));
 
