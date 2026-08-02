@@ -70,6 +70,11 @@ const api = {
       body: formData
     });
     return handle(res, path, 'POST');
+  },
+  download: async (path) => {
+    const res = await fetch(`${BASE_URL}${path}`, { headers: { ...authHeaders() } });
+    if (!res.ok) throw new Error(`Download ${path} failed: ${res.status}`);
+    return res.blob();
   }
 };
 

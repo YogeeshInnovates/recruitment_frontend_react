@@ -41,8 +41,17 @@ export default function Dashboard() {
               <span className="rd-card-icon">🤖</span>
             </div>
             <h3 className="rd-card-title">AI-Based Interview</h3>
-            <p className="rd-card-desc">Upload up to 5 resumes and set up AI-powered voice interviews</p>
+            <p className="rd-card-desc">Upload up to 5 resumes, choose the round, auto-schedule 10-minute slots</p>
             <span className="rd-card-action">Get Started →</span>
+          </Link>
+          <Link to="/interview/batch/dashboard" className="rd-card">
+            <div className="rd-card-glow" />
+            <div className="rd-card-icon-wrap" style={{ background: 'linear-gradient(135deg, #0ea5e9, #06b6d4)' }}>
+              <span className="rd-card-icon">📊</span>
+            </div>
+            <h3 className="rd-card-title">Live Interview Dashboard</h3>
+            <p className="rd-card-desc">Track candidates live, join interviews, download score / Q&A / activity reports</p>
+            <span className="rd-card-action">View Status →</span>
           </Link>
         </div>
       </div>

@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8080';
 
@@ -43,9 +43,17 @@ function getTimeGreeting() {
   return 'Good evening';
 }
 
+const INSTRUCTIONS_TEXT =
+  'Please stay in a quiet, well-lit place. Keep your camera on and look into the camera while answering. ' +
+  'Do not switch tabs or open any other application during the interview. ' +
+  'Do not take help from any person or device. Switching tabs will be recorded and flagged. ' +
+  'Answer naturally, in your own words. Good luck!';
+
 export default function AiAgentInterview() {
   const { interviewId } = useParams();
+  const [searchParams] = useSearchParams();
   const navigate = useNavigate();
+  const isMonitor = searchParams.get('monitor') === '1';
 
   const [phase, setPhase] = useState('loading');
   const [messages, setMessages] = useState([]);
@@ -62,6 +70,15 @@ export default function AiAgentInterview() {
   const [currentDifficulty, setCurrentDifficulty] = useState('Medium');
   const [isFinished, setIsFinished] = useState(false);
   const [countdown, setCountdown] = useState(null);
+  const [waitSeconds, setWaitSeconds] = useState(0);
+  const [speechSupported, setSpeechSupported] = useState(null);
+  const [speakerSupported, setSpeakerSupported] = useState(null);
+  const [micStatus, setMicStatus] = useState('unchecked');
+  const [camStatus, setCamStatus] = useState('unchecked');
+  const [videoStream, setVideoStream] = useState(null);
+  const [monitorTranscript, setMonitorTranscript] = useState([]);
+  const [monitorStatus, setMonitorStatus] = useState('');
+  const [instructionsSpoken, setInstructionsSpoken] = useState(false);
 
   const messagesEndRef = useRef(null);
   const recognitionRef = useRef(null);
@@ -78,6 +95,10 @@ export default function AiAgentInterview() {
   const sendToAIRef = useRef(null);
   const countdownIntervalRef = useRef(null);
   const countdownDebounceRef = useRef(null);
+  const videoRef = useRef(null);
+  const lastActivityEventRef = useRef({});
+  const waitTimerRef = useRef(null);
+  const hasStartedRef = useRef(false);
 
   useEffect(() => { phaseRef.current = phase; }, [phase]);
 
@@ -85,7 +106,7 @@ export default function AiAgentInterview() {
     if (messagesEndRef.current) {
       messagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
     }
-  }, [messages]);
+  }, [messages, monitorTranscript]);
 
   useEffect(() => {
     if (phase === 'active') {
@@ -93,6 +114,38 @@ export default function AiAgentInterview() {
     }
     return () => { if (timerRef.current) clearInterval(timerRef.current); };
   }, [phase]);
+
+  const logActivity = useCallback((eventType, detail) => {
+    try {
+      const key = `${eventType}:${Math.floor(Date.now() / 3000)}`;
+      if (lastActivityEventRef.current[key]) return;
+      lastActivityEventRef.current[key] = true;
+      fetch(`${API_URL}/api/interview/${interviewId}/activity`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...authHeaders() },
+        body: JSON.stringify({ eventType, detail })
+      }).catch(() => {});
+    } catch { /* ignore */ }
+  }, [interviewId]);
+
+  useEffect(() => {
+    if (!interviewId || isMonitor || phase !== 'active') return;
+    const onVis = () => {
+      if (document.hidden) logActivity('TAB_SWITCH', 'Candidate left the interview tab');
+    };
+    const onBlur = () => {
+      if (!document.hidden) logActivity('PAGE_BLUR', 'Candidate window lost focus');
+    };
+    const onFocus = () => logActivity('RETURN_TO_TAB', 'Candidate returned to the interview tab');
+    document.addEventListener('visibilitychange', onVis);
+    window.addEventListener('blur', onBlur);
+    window.addEventListener('focus', onFocus);
+    return () => {
+      document.removeEventListener('visibilitychange', onVis);
+      window.removeEventListener('blur', onBlur);
+      window.removeEventListener('focus', onFocus);
+    };
+  }, [interviewId, isMonitor, phase, logActivity]);
 
   const stopMic = useCallback(() => {
     if (recognitionRef.current) {
@@ -126,9 +179,7 @@ export default function AiAgentInterview() {
     countdownIntervalRef.current = setInterval(() => {
       sec -= 1;
       setCountdown(sec);
-      if (sec <= 0) {
-        clearCountdown();
-      }
+      if (sec <= 0) clearCountdown();
     }, 1000);
   };
 
@@ -141,9 +192,7 @@ export default function AiAgentInterview() {
       countdownIntervalRef.current = setInterval(() => {
         sec -= 1;
         setCountdown(sec);
-        if (sec <= 0) {
-          clearCountdown();
-        }
+        if (sec <= 0) clearCountdown();
       }, 1000);
     }, 2000);
   };
@@ -194,7 +243,6 @@ export default function AiAgentInterview() {
     isProcessingRef.current = true;
     stopMic();
 
-    // Filter out echo: if user message is too similar to last AI message, discard
     const lastAiMsg = conversationHistoryRef.current
       .filter(m => m.role === 'assistant').pop();
     if (lastAiMsg) {
@@ -269,15 +317,12 @@ export default function AiAgentInterview() {
           try {
             await fetch(`${API_URL}/api/interview/${interviewId}/end`, { method: 'POST', headers: { ...authHeaders() } });
           } catch (e) {}
-          setTimeout(() => navigate('/'), 30000);
           return;
         }
 
         if (phaseRef.current === 'active') {
           setTimeout(() => {
-            if (phaseRef.current === 'active' && !isProcessingRef.current) {
-              startMic();
-            }
+            if (phaseRef.current === 'active' && !isProcessingRef.current) startMic();
           }, 3000);
         }
       }
@@ -294,15 +339,18 @@ export default function AiAgentInterview() {
     } finally {
       isProcessingRef.current = false;
     }
-  }, [interviewId, stopMic, startMic, navigate]);
+  }, [interviewId, stopMic, startMic]);
+
   sendToAIRef.current = sendToAI;
 
   useEffect(() => {
+    if (isMonitor) return;
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
     if (!SpeechRecognition) {
-      setError('Speech recognition not supported. Please use Chrome browser.');
+      setSpeechSupported(false);
       return;
     }
+    setSpeechSupported(true);
 
     const recognition = new SpeechRecognition();
     recognition.continuous = true;
@@ -332,7 +380,6 @@ export default function AiAgentInterview() {
         consecutiveSilenceRef.current = 0;
       }
 
-      // Clear countdown + debounce on speech (user is still talking)
       if (newFinal || interimTranscript) {
         if (countdownDebounceRef.current) {
           clearTimeout(countdownDebounceRef.current);
@@ -345,7 +392,6 @@ export default function AiAgentInterview() {
         }
       }
 
-      // Reset idle timer on any speech (final or interim)
       if ((newFinal || interimTranscript) && idleTimerRef.current) {
         clearTimeout(idleTimerRef.current);
         idleTimerRef.current = setTimeout(idleTimerCallback, 15000);
@@ -379,9 +425,111 @@ export default function AiAgentInterview() {
     return () => {
       try { recognition.stop(); } catch (e) {}
     };
-  }, [sendToAI, startMic]);
+  }, [sendToAI, startMic, isMonitor]);
+
+  const beginInterview = useCallback(async (data) => {
+    if (hasStartedRef.current) return;
+    hasStartedRef.current = true;
+    try {
+      setConnectionStatus('Starting interview session...');
+      const startRes = await fetch(`${API_URL}/api/interview/${interviewId}/start`, {
+        method: 'POST', headers: { ...authHeaders() }
+      });
+      if (!startRes.ok) {
+        const errData = await startRes.json().catch(() => ({}));
+        hasStartedRef.current = false;
+        setError(errData.error || 'Interview cannot start yet');
+        setPhase('waiting');
+        startWaitTimer(data);
+        return;
+      }
+
+      await new Promise(r => setTimeout(r, 2000));
+
+      const candidateName = data.candidateName || 'Candidate';
+      const greeting = `${getTimeGreeting()}, ${candidateName}! Welcome to your interview. Am I speaking with ${candidateName}?`;
+
+      setMessages([{ role: 'ai', content: greeting }]);
+      conversationHistoryRef.current = [{ role: 'assistant', content: greeting }];
+      setPhase('active');
+      phaseRef.current = 'active';
+      setConnectionStatus('');
+
+      setAiSpeaking(true);
+      setShowSubtitle(greeting);
+      await speak(greeting);
+      setAiSpeaking(false);
+      setShowSubtitle('');
+
+      setTimeout(() => startMic(), 3000);
+    } catch (err) {
+      hasStartedRef.current = false;
+      setError('Failed to start interview: ' + err.message);
+      setPhase('error');
+    }
+  }, [interviewId, startMic]);
+
+  const startWaitTimer = useCallback((data) => {
+    if (waitTimerRef.current) clearInterval(waitTimerRef.current);
+    const tick = () => {
+      const sched = data?.scheduledAt ? new Date(data.scheduledAt) : null;
+      if (!sched || isNaN(sched.getTime())) {
+        setWaitSeconds(0);
+        setPhase('check');
+        if (waitTimerRef.current) clearInterval(waitTimerRef.current);
+        return;
+      }
+      const diff = Math.floor((sched.getTime() - Date.now()) / 1000);
+      setWaitSeconds(Math.max(0, diff));
+      if (diff <= 0) {
+        setWaitSeconds(0);
+        setPhase('check');
+        if (waitTimerRef.current) clearInterval(waitTimerRef.current);
+      }
+    };
+    tick();
+    waitTimerRef.current = setInterval(tick, 1000);
+  }, []);
 
   useEffect(() => {
+    if (isMonitor) {
+      let stream = null;
+      (async () => {
+        try {
+          stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
+          setVideoStream(stream);
+          if (videoRef.current) videoRef.current.srcObject = stream;
+        } catch (e) { /* recruiter camera optional */ }
+      })();
+      const poll = setInterval(async () => {
+        try {
+          const data = await fetch(`${API_URL}/api/interview/${interviewId}`, { headers: { ...authHeaders() } }).then(r => r.json());
+          setMonitorStatus(data?.status || '');
+          setInterviewData(data);
+        } catch (e) {}
+        try {
+          const list = await fetch(`${API_URL}/api/interview/${interviewId}/transcript`, { headers: { ...authHeaders() } }).then(r => r.json());
+          setMonitorTranscript(list || []);
+        } catch (e) {}
+      }, 5000);
+      const initial = async () => {
+        try {
+          const data = await fetch(`${API_URL}/api/interview/${interviewId}`, { headers: { ...authHeaders() } }).then(r => r.json());
+          setInterviewData(data);
+          setMonitorStatus(data?.status || '');
+        } catch (e) {}
+        try {
+          const list = await fetch(`${API_URL}/api/interview/${interviewId}/transcript`, { headers: { ...authHeaders() } }).then(r => r.json());
+          setMonitorTranscript(list || []);
+        } catch (e) {}
+      };
+      initial();
+      return () => {
+        clearInterval(poll);
+        if (stream) stream.getTracks().forEach(t => t.stop());
+      };
+    }
+
     const init = async () => {
       try {
         setConnectionStatus('Connecting to interview...');
@@ -390,40 +538,133 @@ export default function AiAgentInterview() {
         const data = await res.json();
         setInterviewData(data);
 
-        setConnectionStatus('Starting interview session...');
-        await fetch(`${API_URL}/api/interview/${interviewId}/start`, { method: 'POST', headers: { ...authHeaders() } });
+        if (!window.speechSynthesis) setSpeakerSupported(false);
+        else setSpeakerSupported(true);
 
-        await new Promise(r => setTimeout(r, 2000));
+        if (data.status === 'COMPLETED') {
+          setPhase('complete');
+          return;
+        }
 
-        const candidateName = data.candidateName || 'Candidate';
-        const greeting = `${getTimeGreeting()}, ${candidateName}! Welcome to your interview. Am I speaking with ${candidateName}?`;
+        const sched = data.scheduledAt ? new Date(data.scheduledAt) : null;
+        if (sched && !isNaN(sched.getTime()) && sched.getTime() > Date.now()) {
+          setPhase('waiting');
+          startWaitTimer(data);
+          return;
+        }
 
-        setMessages([{ role: 'ai', content: greeting }]);
-        conversationHistoryRef.current = [{ role: 'assistant', content: greeting }];
-        setPhase('active');
-        phaseRef.current = 'active';
-        setConnectionStatus('');
-
-        setAiSpeaking(true);
-        setShowSubtitle(greeting);
-        await speak(greeting);
-        setAiSpeaking(false);
-        setShowSubtitle('');
-
-        setTimeout(() => startMic(), 3000);
+        setPhase('check');
       } catch (err) {
         setError('Failed to load interview: ' + err.message);
         setPhase('error');
       }
     };
     init();
-  }, [interviewId, startMic]);
+    return () => { if (waitTimerRef.current) clearInterval(waitTimerRef.current); };
+  }, [interviewId, isMonitor, startWaitTimer]);
+
+  useEffect(() => {
+    if (videoStream && videoRef.current) {
+      videoRef.current.srcObject = videoStream;
+    }
+  }, [videoStream]);
+
+  const requestMedia = async () => {
+    let stream = null;
+    try {
+      stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+      setMicStatus('granted');
+      setCamStatus('granted');
+      setVideoStream(stream);
+      if (videoRef.current) videoRef.current.srcObject = stream;
+    } catch (e) {
+      if (e && e.name === 'NotAllowedError') {
+        setMicStatus('denied');
+        setCamStatus('denied');
+        logActivity('MEDIA_DENIED', 'Candidate denied camera/mic access during compatibility check');
+      } else if (e && e.name === 'NotFoundError') {
+        setMicStatus('missing');
+        setCamStatus('missing');
+        logActivity('MEDIA_MISSING', 'No camera/mic device found during compatibility check');
+      } else {
+        setMicStatus('error');
+        setCamStatus('error');
+      }
+    }
+  };
+
+  const canContinue = () =>
+    speechSupported === true &&
+    speakerSupported === true &&
+    (micStatus === 'granted' || micStatus === 'unchecked') &&
+    (camStatus === 'granted' || camStatus === 'unchecked');
+
+  const speakInstructions = async () => {
+    const intro = `Welcome ${interviewData?.candidateName || 'Candidate'}. Before your ${interviewData?.round || 'interview'} begins, please listen to these important instructions.`;
+    setInstructionsSpoken(true);
+    await speak(intro + ' ' + INSTRUCTIONS_TEXT);
+  };
+
+  const formatWait = (sec) => {
+    if (sec <= 0) return '00:00';
+    const m = Math.floor(sec / 60).toString().padStart(2, '0');
+    const s = (sec % 60).toString().padStart(2, '0');
+    return `${m}:${s}`;
+  };
 
   const formatTime = (seconds) => {
     const m = Math.floor(seconds / 60).toString().padStart(2, '0');
     const s = (seconds % 60).toString().padStart(2, '0');
     return `${m}:${s}`;
   };
+
+  /* ---------------- Monitor view ---------------- */
+  if (isMonitor) {
+    return (
+      <div className="interview-room">
+        <div className="interview-video" style={{ background: '#0f172a' }}>
+          <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', flexDirection: 'column', padding: 20 }}>
+            <div style={{ fontSize: 22, fontWeight: 700, marginBottom: 4 }}>
+              {interviewData?.candidateName || 'Candidate'} — Live Monitor
+            </div>
+            <div style={{ fontSize: 13, color: '#94a3b8', marginBottom: 16 }}>
+              {interviewData?.jobTitle || 'Interview'} · {interviewData?.round || ''} ·{' '}
+              <span className={`bd-status ${monitorStatus === 'IN_PROGRESS' ? 'bd-processing' : monitorStatus === 'COMPLETED' ? 'bd-over' : 'bd-scheduled'}`}>
+                {monitorStatus || 'Loading...'}
+              </span>
+            </div>
+            {videoStream ? (
+              <video ref={videoRef} autoPlay playsInline muted style={{ width: 240, borderRadius: 12, border: '1px solid #334155', background: '#000' }} />
+            ) : (
+              <div style={{ width: 240, height: 160, borderRadius: 12, background: '#1e293b', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#64748b' }}>
+                Recruiter camera off
+              </div>
+            )}
+            <div style={{ marginTop: 20, fontSize: 13, color: '#94a3b8' }}>
+              Candidate video is not streamed yet — transcript feed below updates live every 5 seconds.
+            </div>
+            <div style={{ marginTop: 20, width: '100%', maxWidth: 640, maxHeight: '45vh', overflow: 'auto', background: '#1e293b', borderRadius: 12, padding: 16 }}>
+              {monitorTranscript.length === 0 ? (
+                <div style={{ color: '#64748b', fontSize: 14, textAlign: 'center', padding: 20 }}>
+                  Waiting for the candidate to start the interview...
+                </div>
+              ) : monitorTranscript.map((t, i) => (
+                <div key={i} style={{ marginBottom: 10, fontSize: 14 }}>
+                  <span style={{ fontWeight: 700, color: t.speaker === 'ai_agent' ? '#22d3ee' : '#a78bfa' }}>
+                    {t.speaker === 'ai_agent' ? '🤖 AI' : '👤 Candidate'}:
+                  </span>{' '}
+                  <span style={{ color: '#e2e8f0' }}>{t.content}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+        <div className="interview-chat" style={{ alignItems: 'center', justifyContent: 'center', display: 'flex' }}>
+          <button onClick={() => navigate('/interview/batch/dashboard')} className="btn btn-primary">Back to Dashboard</button>
+        </div>
+      </div>
+    );
+  }
 
   if (phase === 'loading') {
     return (
@@ -445,7 +686,7 @@ export default function AiAgentInterview() {
       <div className="interview-room">
         <div className="interview-video">
           <div className="waiting-room">
-            <div style={{ fontSize: 48, marginBottom: 16 }}>&#9888;&#65039;</div>
+            <div style={{ fontSize: 48, marginBottom: 16 }}>⚠️</div>
             <h2>Interview Error</h2>
             <p>{error}</p>
             <button onClick={() => navigate('/')} className="btn btn-primary">Go Back</button>
@@ -456,6 +697,102 @@ export default function AiAgentInterview() {
     );
   }
 
+  /* ---------------- Waiting (exact time enforcement) ---------------- */
+  if (phase === 'waiting') {
+    return (
+      <div className="interview-room">
+        <div className="interview-video">
+          <div className="waiting-room">
+            <div style={{ fontSize: 56, marginBottom: 16 }}>⏳</div>
+            <h2>Please Wait</h2>
+            <p>Your interview is scheduled for <b>{interviewData?.scheduledAt ? new Date(interviewData.scheduledAt).toLocaleString() : ''}</b></p>
+            <div className="wait-timer">{formatWait(waitSeconds)}</div>
+            <p style={{ color: '#94a3b8', fontSize: 14 }}>
+              {waitSeconds > 0
+                ? `Your interview starts in ${waitSeconds} seconds. It cannot start before your allocated time.`
+                : 'Your interview time has arrived. Setting up...'}
+            </p>
+            {error && <p style={{ color: '#fca5a5' }}>{error}</p>}
+            <button className="btn btn-outline" onClick={() => navigate('/')}>Go Back</button>
+          </div>
+        </div>
+        <div className="interview-chat" />
+      </div>
+    );
+  }
+
+  /* ---------------- Compatibility check ---------------- */
+  if (phase === 'check') {
+    return (
+      <div className="interview-room">
+        <div className="interview-video">
+          <div className="waiting-room">
+            <h2>System Compatibility Check</h2>
+            <p>Please verify your device before your interview starts.</p>
+            <div className="check-list">
+              <div className={`check-item ${speechSupported === false ? 'fail' : 'ok'}`}>
+                <span>{speechSupported === false ? '✕' : '✓'}</span> Browser supports voice (Chrome / Edge)
+                {speechSupported === false && <div className="check-sub">Please use Google Chrome or Microsoft Edge.</div>}
+              </div>
+              <div className={`check-item ${speakerSupported === false ? 'fail' : 'ok'}`}>
+                <span>{speakerSupported === false ? '✕' : '✓'}</span> Speaker / audio output
+              </div>
+              <div className={`check-item ${micStatus === 'denied' ? 'fail' : 'ok'}`}>
+                <span>{micStatus === 'denied' ? '✕' : micStatus === 'granted' ? '✓' : '?'}</span> Microphone
+                {micStatus === 'denied' && <div className="check-sub">Microphone access denied. Please allow it in the browser.</div>}
+              </div>
+              <div className={`check-item ${camStatus === 'denied' ? 'fail' : 'ok'}`}>
+                <span>{camStatus === 'denied' ? '✕' : camStatus === 'granted' ? '✓' : '?'}</span> Camera
+                {camStatus === 'denied' && <div className="check-sub">Camera access denied. Please allow it in the browser.</div>}
+              </div>
+            </div>
+            {videoStream && (
+              <video ref={videoRef} autoPlay playsInline muted style={{ width: 180, borderRadius: 10, border: '1px solid #334155', background: '#000', margin: '12px 0' }} />
+            )}
+            <div style={{ display: 'flex', gap: 12, justifyContent: 'center', marginTop: 8, flexWrap: 'wrap' }}>
+              <button className="btn btn-outline" onClick={requestMedia}>Test Camera & Mic</button>
+              <button className="btn btn-primary" onClick={() => setPhase('instructions')} disabled={!canContinue()}>
+                Continue
+              </button>
+            </div>
+            {!canContinue() && (
+              <p style={{ color: '#fca5a5', fontSize: 13, marginTop: 10 }}>
+                Complete the checks above to continue (allow camera & mic, use Chrome/Edge).
+              </p>
+            )}
+          </div>
+        </div>
+        <div className="interview-chat" />
+      </div>
+    );
+  }
+
+  /* ---------------- Instructions (TTS, no AI) ---------------- */
+  if (phase === 'instructions') {
+    return (
+      <div className="interview-room">
+        <div className="interview-video">
+          <div className="waiting-room">
+            <h2>Important Instructions</h2>
+            <p>Please listen carefully. We will read the instructions aloud.</p>
+            <div className="instructions-box">{INSTRUCTIONS_TEXT}</div>
+            <div style={{ display: 'flex', gap: 12, justifyContent: 'center', marginTop: 16, flexWrap: 'wrap' }}>
+              {!instructionsSpoken && (
+                <button className="btn btn-outline" onClick={speakInstructions}>🔊 Play Instructions</button>
+              )}
+              <button className="btn btn-primary" onClick={() => beginInterview(interviewData)}>
+                🎤 Start Interview
+              </button>
+            </div>
+            {error && <p style={{ color: '#fca5a5', marginTop: 10 }}>{error}</p>}
+          </div>
+        </div>
+        <div className="interview-chat" />
+      </div>
+    );
+  }
+
+  /* ---------------- Active interview ---------------- */
   return (
     <div className="interview-room">
       <div className="interview-video">
@@ -487,8 +824,11 @@ export default function AiAgentInterview() {
             {aiSpeaking ? 'AI is speaking...' : isListening ? 'Listening to you...' : 'AI Interviewer'}
           </div>
           <div style={{ fontSize: 14, color: '#94a3b8' }}>
-            {interviewData?.candidateName || 'Candidate'}
+            {interviewData?.candidateName || 'Candidate'} · {interviewData?.round || ''}
           </div>
+          {videoStream && (
+            <video ref={videoRef} autoPlay playsInline muted style={{ width: 140, borderRadius: 10, border: '1px solid #334155', background: '#000', marginTop: 14 }} />
+          )}
         </div>
 
         {showSubtitle && (
@@ -519,7 +859,7 @@ export default function AiAgentInterview() {
             display: 'flex', alignItems: 'center', justifyContent: 'center',
             flexDirection: 'column', color: 'white', padding: 20,
           }}>
-            <div style={{ fontSize: 64, marginBottom: 16 }}>&#10003;</div>
+            <div style={{ fontSize: 64, marginBottom: 16 }}>✓</div>
             <h2 style={{ marginBottom: 8 }}>Interview Complete</h2>
             <p style={{ color: '#94a3b8', marginBottom: 20 }}>Thank you for your time!</p>
             <div style={{ display: 'flex', gap: 24, marginBottom: 24 }}>
@@ -535,7 +875,7 @@ export default function AiAgentInterview() {
             <button onClick={() => {
               const conv = messages.filter(m => m.role === 'ai' || m.role === 'candidate')
                 .map(m => `${m.role === 'ai' ? '🤖' : '👤'}: ${m.content}`).join('\n\n');
-              const blob = new Blob([`Interview Transcript\n\nDifficulty: ${currentDifficulty}\nQuestions: ${questionCount}\n\n${conv}`], {type: 'text/plain'});
+              const blob = new Blob([`Interview Transcript\n\nRound: ${interviewData?.round || ''}\nDifficulty: ${currentDifficulty}\nQuestions: ${questionCount}\n\n${conv}`], {type: 'text/plain'});
               const url = URL.createObjectURL(blob);
               const a = document.createElement('a');
               a.href = url; a.download = `interview-${interviewId}.txt`; a.click();

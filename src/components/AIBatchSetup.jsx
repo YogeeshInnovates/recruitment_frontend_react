@@ -115,6 +115,12 @@ export default function AIBatchSetup() {
           ) : (
             <p className="abs-warn">Resumes saved, but vector indexing is still warming up</p>
           )}
+          {result.interviewsScheduled > 0 && (
+            <p className="abs-ok">
+              🗓️ {result.interviewsScheduled} interview slot{result.interviewsScheduled !== 1 ? 's' : ''} scheduled automatically,
+              10 minutes apart (one by one). Each candidate was emailed their round, date and time.
+            </p>
+          )}
 
           <div className="abs-table-wrap">
             <table className="abs-table">
@@ -125,6 +131,7 @@ export default function AIBatchSetup() {
                   <th>Email</th>
                   <th>Experience</th>
                   <th>Skills</th>
+                  <th>Slot</th>
                 </tr>
               </thead>
               <tbody>
@@ -135,6 +142,13 @@ export default function AIBatchSetup() {
                     <td>{c.email || '—'}</td>
                     <td>{c.experience || '—'}</td>
                     <td className="abs-skills">{c.skills || '—'}</td>
+                    <td>
+                      {c.scheduledDate && c.scheduledTime ? (
+                        <span className="abs-slot">{c.scheduledDate}<br />{c.scheduledTime}</span>
+                      ) : (
+                        '—'
+                      )}
+                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -142,7 +156,10 @@ export default function AIBatchSetup() {
           </div>
 
           <div className="abs-actions">
-            <button className="btn btn-primary" onClick={() => navigate('/dashboard')}>
+            <button className="btn btn-primary" onClick={() => navigate('/interview/batch/dashboard')}>
+              Open Live Dashboard
+            </button>
+            <button className="btn btn-outline" onClick={() => navigate('/dashboard')}>
               Back to Dashboard
             </button>
           </div>

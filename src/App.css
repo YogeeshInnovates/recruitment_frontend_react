@@ -2359,3 +2359,103 @@ tr:hover td {
 .abs-file { font-weight: 500; color: #0f172a; }
 .abs-name { font-weight: 700; color: #0f172a; }
 .abs-skills { font-size: 13px; color: #7c3aed; }
+.abs-slot { font-size: 12px; font-weight: 600; color: #0ea5e9; line-height: 1.4; }
+
+/* ---------- Batch Dashboard ---------- */
+.bd-stats {
+  display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px;
+  margin: 20px 0;
+}
+.bd-stat {
+  background: linear-gradient(135deg, #f8fafc, #f1f5f9);
+  border: 1px solid #e2e8f0; border-radius: 12px;
+  padding: 16px; text-align: center;
+  display: flex; flex-direction: column; gap: 2px;
+}
+.bd-stat-red { border-color: #fecaca; background: linear-gradient(135deg, #fef2f2, #fee2e2); }
+.bd-stat-orange { border-color: #fed7aa; background: linear-gradient(135deg, #fff7ed, #ffedd5); }
+.bd-stat-green { border-color: #bbf7d0; background: linear-gradient(135deg, #f0fdf4, #dcfce7); }
+.bd-stat-num { font-size: 28px; font-weight: 800; color: #0f172a; }
+.bd-stat span:last-child { font-size: 12px; color: #64748b; text-transform: uppercase; letter-spacing: 0.03em; }
+
+.bd-table-wrap { overflow-x: auto; margin-top: 8px; }
+.bd-table { width: 100%; border-collapse: collapse; font-size: 14px; }
+.bd-table th {
+  text-align: left; padding: 10px 12px;
+  background: #f8fafc; color: #64748b;
+  font-size: 12px; text-transform: uppercase; letter-spacing: 0.03em;
+  border-bottom: 1px solid #e2e8f0;
+}
+.bd-table td { padding: 12px; border-bottom: 1px solid #f1f5f9; color: #334155; vertical-align: middle; }
+.bd-name { font-weight: 700; color: #0f172a; }
+.bd-mail { font-size: 12px; color: #94a3b8; }
+.bd-job { font-weight: 600; color: #334155; }
+.bd-round { font-size: 12px; color: #7c3aed; }
+.bd-date { font-weight: 600; color: #0ea5e9; }
+.bd-time { font-size: 13px; color: #334155; }
+
+.bd-status {
+  display: inline-flex; align-items: center; gap: 7px;
+  padding: 5px 12px; border-radius: 999px;
+  font-size: 12px; font-weight: 700;
+}
+.bd-status.bd-over { background: #dcfce7; color: #15803d; }
+.bd-status.bd-processing { background: #ffedd5; color: #c2410c; }
+.bd-status.bd-due { background: #fee2e2; color: #dc2626; }
+.bd-status.bd-scheduled { background: #e2e8f0; color: #475569; }
+.bd-dot-red, .bd-dot-green, .bd-dot-orange, .bd-dot-gray {
+  width: 9px; height: 9px; border-radius: 50%; display: inline-block;
+}
+.bd-dot-red { background: #ef4444; }
+.bd-dot-green { background: #22c55e; }
+.bd-dot-orange { background: #f97316; }
+.bd-dot-gray { background: #94a3b8; }
+.twinkle { animation: bdTwinkle 1s infinite; }
+@keyframes bdTwinkle {
+  0%, 100% { opacity: 1; box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7); }
+  50% { opacity: 0.3; box-shadow: 0 0 0 6px rgba(239, 68, 68, 0); }
+}
+
+.bd-score { font-weight: 800; }
+.bd-score.good { color: #16a34a; }
+.bd-score.mid { color: #d97706; }
+.bd-score.low { color: #dc2626; }
+.bd-na { color: #cbd5e1; }
+.bd-actions { display: flex; gap: 6px; flex-wrap: wrap; }
+.bd-btn {
+  padding: 6px 12px; border-radius: 8px; border: 1px solid #e2e8f0;
+  background: #f8fafc; color: #334155; font-size: 12px; font-weight: 600;
+  cursor: pointer; text-decoration: none; transition: all 0.15s ease;
+}
+.bd-btn:hover { background: #e2e8f0; }
+.bd-join { background: linear-gradient(135deg, #0ea5e9, #06b6d4); border: none; color: white; }
+.bd-join:hover { background: linear-gradient(135deg, #0284c7, #0891b2); color: white; }
+
+/* ---------- Interview waiting / check / instructions ---------- */
+.waiting-room { text-align: center; padding: 20px; color: white; }
+.wait-timer {
+  font-size: 56px; font-weight: 800; color: #fbbf24;
+  font-variant-numeric: tabular-nums; margin: 18px 0;
+  text-shadow: 0 0 30px rgba(251, 191, 36, 0.4);
+}
+.check-list {
+  max-width: 420px; margin: 16px auto; text-align: left;
+}
+.check-item {
+  display: flex; align-items: center; gap: 10px;
+  background: rgba(255,255,255,0.06); border: 1px solid #334155;
+  padding: 10px 14px; border-radius: 10px; margin-bottom: 8px;
+  font-size: 14px; color: #e2e8f0;
+}
+.check-item span { font-weight: 800; width: 18px; text-align: center; }
+.check-item.ok { border-color: #22c55e; }
+.check-item.ok span { color: #22c55e; }
+.check-item.fail { border-color: #ef4444; }
+.check-item.fail span { color: #ef4444; }
+.check-sub { font-size: 12px; color: #fca5a5; width: 100%; }
+.instructions-box {
+  max-width: 520px; margin: 16px auto; text-align: left;
+  background: rgba(139, 92, 246, 0.12); border: 1px solid #7c3aed;
+  border-radius: 12px; padding: 16px; color: #e2e8f0;
+  font-size: 14px; line-height: 1.7;
+}

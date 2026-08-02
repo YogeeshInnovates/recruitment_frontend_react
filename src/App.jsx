@@ -26,6 +26,7 @@ import InterviewResults from './components/InterviewResults';
 import OrganizationSetup from './components/OrganizationSetup';
 import TeamPage from './components/TeamPage';
 import AIBatchSetup from './components/AIBatchSetup';
+import BatchDashboard from './components/BatchDashboard';
 
 function RequireAuth({ children }) {
   const { user, loading } = useContext(AuthContext);
@@ -76,6 +77,8 @@ function AppRoutes() {
         <Route path="/applications/:appId" element={<ApplicationDetail />} />
         <Route path="/team" element={<TeamPage />} />
         <Route path="/interview/batch" element={<AIBatchSetup />} />
+        <Route path="/interview/batch/dashboard" element={<BatchDashboard />} />
+        <Route path="/interview/batch/dashboard/:jobId" element={<BatchDashboard />} />
       </Route>
     </Routes>
   );
