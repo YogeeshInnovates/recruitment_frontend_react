@@ -3,6 +3,7 @@ import { useContext } from 'react';
 import { AuthProvider, AuthContext } from './context/AuthContext';
 import { OrgContext, OrgProvider } from './context/OrgContext';
 export { OrgContext };
+import WakeUpGate from './components/WakeUpGate';
 import Layout from './components/Layout';
 import HomePage from './components/HomePage';
 import LoginPage from './components/LoginPage';
@@ -80,13 +81,15 @@ function AppRoutes() {
 
 function App() {
   return (
-    <AuthProvider>
-      <OrgProvider>
-        <BrowserRouter>
-          <AppRoutes />
-        </BrowserRouter>
-      </OrgProvider>
-    </AuthProvider>
+    <BrowserRouter>
+      <WakeUpGate>
+        <AuthProvider>
+          <OrgProvider>
+            <AppRoutes />
+          </OrgProvider>
+        </AuthProvider>
+      </WakeUpGate>
+    </BrowserRouter>
   );
 }
 
