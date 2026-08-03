@@ -602,11 +602,18 @@ export default function AiAgentInterview() {
     }
   };
 
+  useEffect(() => {
+    if (phase === 'check' && !isMonitor) {
+      requestMedia();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [phase]);
+
   const canContinue = () =>
     speechSupported === true &&
     speakerSupported === true &&
-    (micStatus === 'granted' || micStatus === 'unchecked') &&
-    (camStatus === 'granted' || camStatus === 'unchecked');
+    micStatus === 'granted' &&
+    camStatus === 'granted';
 
   const speakInstructions = async () => {
     const intro = `Welcome ${interviewData?.candidateName || 'Candidate'}. Before your ${interviewData?.round || 'interview'} begins, please listen to these important instructions.`;
@@ -746,13 +753,29 @@ export default function AiAgentInterview() {
               <div className={`check-item ${speakerSupported === false ? 'fail' : 'ok'}`}>
                 <span>{speakerSupported === false ? '✕' : '✓'}</span> Speaker / audio output
               </div>
-              <div className={`check-item ${micStatus === 'denied' ? 'fail' : 'ok'}`}>
-                <span>{micStatus === 'denied' ? '✕' : micStatus === 'granted' ? '✓' : '?'}</span> Microphone
-                {micStatus === 'denied' && <div className="check-sub">Microphone access denied. Please allow it in the browser.</div>}
+              <div className={`check-item ${micStatus === 'granted' ? 'ok' : 'fail'}`}>
+                <span>{micStatus === 'granted' ? '✓' : '✕'}</span> Microphone (required)
+                {micStatus !== 'granted' && (
+                  <div className="check-sub">
+                    {micStatus === 'denied'
+                      ? 'Microphone access denied. Allow it in the browser, then click "Test Camera & Mic" again.'
+                      : micStatus === 'missing'
+                      ? 'No microphone found. Connect one and test again.'
+                      : 'Waiting for access — allow the browser prompt or click "Test Camera & Mic".'}
+                  </div>
+                )}
               </div>
-              <div className={`check-item ${camStatus === 'denied' ? 'fail' : 'ok'}`}>
-                <span>{camStatus === 'denied' ? '✕' : camStatus === 'granted' ? '✓' : '?'}</span> Camera
-                {camStatus === 'denied' && <div className="check-sub">Camera access denied. Please allow it in the browser.</div>}
+              <div className={`check-item ${camStatus === 'granted' ? 'ok' : 'fail'}`}>
+                <span>{camStatus === 'granted' ? '✓' : '✕'}</span> Camera (required)
+                {camStatus !== 'granted' && (
+                  <div className="check-sub">
+                    {camStatus === 'denied'
+                      ? 'Camera access denied. Allow it in the browser, then click "Test Camera & Mic" again.'
+                      : camStatus === 'missing'
+                      ? 'No camera found. Connect one and test again.'
+                      : 'Waiting for access — allow the browser prompt or click "Test Camera & Mic".'}
+                  </div>
+                )}
               </div>
             </div>
             {videoStream && (
@@ -766,7 +789,7 @@ export default function AiAgentInterview() {
             </div>
             {!canContinue() && (
               <p style={{ color: '#fca5a5', fontSize: 13, marginTop: 10 }}>
-                Complete the checks above to continue (allow camera & mic, use Chrome/Edge).
+                Camera and microphone are required. Allow both, use Chrome/Edge, then click Continue.
               </p>
             )}
           </div>
