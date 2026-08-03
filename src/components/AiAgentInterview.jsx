@@ -577,6 +577,18 @@ export default function AiAgentInterview() {
     }
   }, [videoStream]);
 
+  useEffect(() => {
+    if (phase === 'complete' || phase === 'error') {
+      try { if (recognitionRef.current) recognitionRef.current.stop(); } catch (e) {}
+      setIsListening(false);
+      setMicActive(false);
+      if (videoStream) {
+        videoStream.getTracks().forEach(t => t.stop());
+        setVideoStream(null);
+      }
+    }
+  }, [phase, videoStream]);
+
   const requestMedia = async () => {
     let stream = null;
     try {
