@@ -892,32 +892,9 @@ export default function AiAgentInterview() {
           }}>
             <div style={{ fontSize: 64, marginBottom: 16 }}>✓</div>
             <h2 style={{ marginBottom: 8 }}>Interview Complete</h2>
-            <p style={{ color: '#94a3b8', marginBottom: 20 }}>Thank you for your time!</p>
-            <div style={{ display: 'flex', gap: 24, marginBottom: 24 }}>
-              <div style={{ textAlign: 'center' }}>
-                <div style={{ fontSize: 32, fontWeight: 700, color: '#8b5cf6' }}>{currentDifficulty}</div>
-                <div style={{ fontSize: 12, color: '#94a3b8' }}>Level</div>
-              </div>
-              <div style={{ textAlign: 'center' }}>
-                <div style={{ fontSize: 32, fontWeight: 700, color: '#f59e0b' }}>{questionCount}</div>
-                <div style={{ fontSize: 12, color: '#94a3b8' }}>Questions</div>
-              </div>
-            </div>
-            <button onClick={() => {
-              const conv = messages.filter(m => m.role === 'ai' || m.role === 'candidate')
-                .map(m => `${m.role === 'ai' ? '🤖' : '👤'}: ${m.content}`).join('\n\n');
-              const blob = new Blob([`Interview Transcript\n\nRound: ${interviewData?.round || ''}\nDifficulty: ${currentDifficulty}\nQuestions: ${questionCount}\n\n${conv}`], {type: 'text/plain'});
-              const url = URL.createObjectURL(blob);
-              const a = document.createElement('a');
-              a.href = url; a.download = `interview-${interviewId}.txt`; a.click();
-              URL.revokeObjectURL(url);
-            }} style={{
-              padding: '10px 24px', background: '#1e293b', color: 'white',
-              border: '1px solid #334155', borderRadius: 8, cursor: 'pointer',
-              fontSize: 14, marginBottom: 12,
-            }}>
-              Download Report
-            </button>
+            <p style={{ color: '#94a3b8', marginBottom: 20 }}>
+              Thank you for your time! We will get back to you soon.
+            </p>
           </div>
         )}
 
