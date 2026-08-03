@@ -99,6 +99,7 @@ export default function AiAgentInterview() {
   const lastActivityEventRef = useRef({});
   const waitTimerRef = useRef(null);
   const hasStartedRef = useRef(false);
+  const beginRef = useRef(null);
 
   useEffect(() => { phaseRef.current = phase; }, [phase]);
 
@@ -504,8 +505,6 @@ export default function AiAgentInterview() {
     tick();
     waitTimerRef.current = setInterval(tick, 1000);
   }, []);
-
-  const beginRef = useRef(null);
 
   useEffect(() => {
     if (isMonitor) {

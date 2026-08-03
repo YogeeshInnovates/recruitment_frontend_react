@@ -67,9 +67,9 @@ export default function SystemCheck() {
         for (let i = 0; i < data.length; i++) sum += data[i];
         const avg = sum / data.length;
         setMicLevel(Math.round(avg));
-        if (avg > 12) micOkRef.current = true;
+        if (avg > 8) micOkRef.current = true;
         ticks++;
-        if (ticks > 120) {
+        if (micOkRef.current || ticks > 300) {
           setMic(micOkRef.current ? 'passed' : 'failed');
           return;
         }
@@ -77,7 +77,11 @@ export default function SystemCheck() {
       };
       loop();
     } catch (e) {
-      setMic('failed');
+      if (e && (e.name === 'NotAllowedError' || e.name === 'SecurityError')) {
+        setMic('denied');
+      } else {
+        setMic('failed');
+      }
     }
   };
 
@@ -142,8 +146,9 @@ export default function SystemCheck() {
               <div style={{ fontSize: 12, color: '#94a3b8' }}>Speak after pressing the button</div>
               {mic === 'testing' && (
                 <div style={{ marginTop: 8 }}>
+                  <div style={{ fontSize: 12, color: '#94a3b8', marginBottom: 4 }}>Listening... please speak now</div>
                   <div style={{ height: 6, width: 200, maxWidth: '100%', background: '#334155', borderRadius: 4, overflow: 'hidden' }}>
-                    <div style={{ height: '100%', width: `${Math.min(100, micLevel)}%`, background: micLevel > 12 ? '#22c55e' : '#f59e0b', transition: 'width 80ms' }} />
+                    <div style={{ height: '100%', width: `${Math.min(100, micLevel)}%`, background: micLevel > 8 ? '#22c55e' : '#f59e0b', transition: 'width 80ms' }} />
                   </div>
                 </div>
               )}
@@ -151,6 +156,12 @@ export default function SystemCheck() {
             <button onClick={testMic} style={btnStyle}>Test Microphone</button>
             {mic === 'passed' && <span style={passBadge}>✓ Working</span>}
             {mic === 'failed' && <span style={failBadge}>✕ No sound</span>}
+            {mic === 'denied' && (
+              <div style={{ width: '100%', marginTop: 10, background: '#450a0a', border: '1px solid #dc2626', color: '#fca5a5', borderRadius: 8, padding: '10px 12px', fontSize: 13 }}>
+                Microphone access is blocked. Click the <b>camera/lock icon in your browser address bar</b>, choose
+                <b> Allow </b> for Microphone, then click "Test Microphone" again.
+              </div>
+            )}
           </div>
 
           <div style={{ display: 'flex', alignItems: 'center', gap: 12, background: 'rgba(255,255,255,0.05)', border: '1px solid #334155', borderRadius: 12, padding: '14px 16px', flexWrap: 'wrap' }}>
