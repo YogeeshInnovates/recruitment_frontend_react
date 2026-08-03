@@ -67,25 +67,6 @@ export default function BatchDashboard() {
     }
   };
 
-  const [testEmail, setTestEmail] = useState('');
-  const [testResult, setTestResult] = useState(null);
-  const [testing, setTesting] = useState(false);
-
-  const sendTestEmail = async () => {
-    const to = testEmail.trim() || (rows[0]?.email || '');
-    if (!to) { setTestResult({ ok: false, error: 'No email available. Enter one.' }); return; }
-    setTesting(true);
-    setTestResult(null);
-    try {
-      const res = await api.get(`/api/test-email?to=${encodeURIComponent(to)}`);
-      setTestResult({ ok: res.ok, error: res.error });
-    } catch (err) {
-      setTestResult({ ok: false, error: err.message || 'Request failed' });
-    } finally {
-      setTesting(false);
-    }
-  };
-
   const stats = {
     total: rows.length,
     due: rows.filter(r => computeStatus(r, now) === 'due').length,
@@ -109,23 +90,6 @@ export default function BatchDashboard() {
           <div className="bd-stat bd-stat-red"><span className="bd-stat-num">{stats.due}</span><span>Due Now</span></div>
           <div className="bd-stat bd-stat-orange"><span className="bd-stat-num">{stats.processing}</span><span>Processing</span></div>
           <div className="bd-stat bd-stat-green"><span className="bd-stat-num">{stats.over}</span><span>Completed</span></div>
-        </div>
-
-        <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 14, flexWrap: 'wrap' }}>
-          <input
-            value={testEmail}
-            onChange={(e) => setTestEmail(e.target.value)}
-            placeholder="Enter email to test (default: first candidate)"
-            style={{ flex: 1, minWidth: 220, padding: '10px 12px', borderRadius: 8, border: '1px solid #334155', background: '#0f172a', color: '#e2e8f0' }}
-          />
-          <button className="btn btn-primary" onClick={sendTestEmail} disabled={testing}>
-            {testing ? 'Sending...' : '📧 Test Email'}
-          </button>
-          {testResult && (
-            <span style={{ fontSize: 13, color: testResult.ok ? '#10b981' : '#f87171', fontWeight: 600 }}>
-              {testResult.ok ? '✅ Sent — check the inbox (and spam)' : `❌ ${testResult.error}`}
-            </span>
-          )}
         </div>
 
         {error && <div className="abs-error">{error}</div>}
