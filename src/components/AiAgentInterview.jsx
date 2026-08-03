@@ -78,6 +78,8 @@ export default function AiAgentInterview() {
   const [videoStream, setVideoStream] = useState(null);
   const [monitorTranscript, setMonitorTranscript] = useState([]);
   const [monitorStatus, setMonitorStatus] = useState('');
+  const [snapshotUrl, setSnapshotUrl] = useState(null);
+  const [snapshotTime, setSnapshotTime] = useState(null);
   const [instructionsSpoken, setInstructionsSpoken] = useState(false);
 
   const messagesEndRef = useRef(null);
@@ -508,14 +510,22 @@ export default function AiAgentInterview() {
 
   useEffect(() => {
     if (isMonitor) {
-      let stream = null;
-      (async () => {
+      const loadSnapshot = async () => {
         try {
-          stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
-          setVideoStream(stream);
-          if (videoRef.current) videoRef.current.srcObject = stream;
-        } catch (e) { /* recruiter camera optional */ }
-      })();
+          const res = await fetch(`${API_URL}/api/interview/${interviewId}/snapshot`, {
+            headers: { ...authHeaders() }, cache: 'no-store'
+          });
+          if (res.ok) {
+            const blob = await res.blob();
+            const url = URL.createObjectURL(blob);
+            setSnapshotUrl(prev => { if (prev) URL.revokeObjectURL(prev); return url; });
+            setSnapshotTime(new Date());
+          } else {
+            setSnapshotUrl(prev => { if (prev) URL.revokeObjectURL(prev); return null; });
+            setSnapshotTime(null);
+          }
+        } catch (e) {}
+      };
       const poll = setInterval(async () => {
         try {
           const data = await fetch(`${API_URL}/api/interview/${interviewId}`, { headers: { ...authHeaders() } }).then(r => r.json());
@@ -539,9 +549,12 @@ export default function AiAgentInterview() {
         } catch (e) {}
       };
       initial();
+      loadSnapshot();
+      const snapTimer = setInterval(loadSnapshot, 3000);
       return () => {
         clearInterval(poll);
-        if (stream) stream.getTracks().forEach(t => t.stop());
+        clearInterval(snapTimer);
+        setSnapshotUrl(prev => { if (prev) URL.revokeObjectURL(prev); return null; });
       };
     }
 
@@ -587,6 +600,31 @@ export default function AiAgentInterview() {
         setVideoStream(null);
       }
     }
+  }, [phase, videoStream]);
+
+  useEffect(() => {
+    if (phase !== 'active' || !videoStream) return;
+    const canvas = document.createElement('canvas');
+    canvas.width = 320;
+    canvas.height = 240;
+    const ctx = canvas.getContext('2d');
+    const send = async () => {
+      try {
+        const v = videoRef.current;
+        if (!v || !v.videoWidth) return;
+        ctx.drawImage(v, 0, 0, canvas.width, canvas.height);
+        const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/jpeg', 0.55));
+        if (!blob) return;
+        await fetch(`${API_URL}/api/interview/${interviewId}/snapshot`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'image/jpeg' },
+          body: blob
+        });
+      } catch (e) {}
+    };
+    send();
+    const id = setInterval(send, 4000);
+    return () => clearInterval(id);
   }, [phase, videoStream]);
 
   const requestMedia = async () => {
@@ -660,15 +698,20 @@ export default function AiAgentInterview() {
                 {monitorStatus || 'Loading...'}
               </span>
             </div>
-            {videoStream ? (
-              <video ref={videoRef} autoPlay playsInline muted style={{ width: 240, borderRadius: 12, border: '1px solid #334155', background: '#000' }} />
+            {snapshotUrl ? (
+              <div style={{ position: 'relative' }}>
+                <img src={snapshotUrl} alt="Candidate live feed" style={{ width: 320, borderRadius: 12, border: '1px solid #334155', background: '#000' }} />
+                <div style={{ position: 'absolute', top: 10, left: 10, background: '#dc2626', color: 'white', fontSize: 11, fontWeight: 700, padding: '3px 10px', borderRadius: 20, letterSpacing: 1 }}>
+                  ● LIVE
+                </div>
+              </div>
             ) : (
-              <div style={{ width: 240, height: 160, borderRadius: 12, background: '#1e293b', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#64748b' }}>
-                Recruiter camera off
+              <div style={{ width: 320, height: 200, borderRadius: 12, background: '#1e293b', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#64748b' }}>
+                Waiting for candidate camera...
               </div>
             )}
-            <div style={{ marginTop: 20, fontSize: 13, color: '#94a3b8' }}>
-              Candidate video is not streamed yet — transcript feed below updates live every 5 seconds.
+            <div style={{ marginTop: 10, fontSize: 12, color: '#94a3b8' }}>
+              {snapshotTime ? `Live feed from candidate's camera — last update ${snapshotTime.toLocaleTimeString()}` : 'Camera feed updates when the candidate starts the interview.'}
             </div>
             <div style={{ marginTop: 20, width: '100%', maxWidth: 640, maxHeight: '45vh', overflow: 'auto', background: '#1e293b', borderRadius: 12, padding: 16 }}>
               {monitorTranscript.length === 0 ? (
