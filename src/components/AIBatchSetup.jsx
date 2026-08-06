@@ -283,9 +283,17 @@ export default function AIBatchSetup() {
               Continue
             </button>
           ) : (
-            <button className="btn btn-primary" onClick={handleSubmit} disabled={loading || !orgId}>
-              {loading ? 'Processing resumes...' : 'Setup AI Interviews'}
-            </button>
+            <>
+              {!orgId && (
+                <p className="abs-error" style={{ marginBottom: 12 }}>
+                  You need to create an organization first — use "Create Organization" on your
+                  dashboard, then come back here.
+                </p>
+              )}
+              <button className="btn btn-primary" onClick={handleSubmit} disabled={loading || !orgId}>
+                {loading ? 'Processing resumes...' : 'Setup AI Interviews'}
+              </button>
+            </>
           )}
         </div>
       </div>
