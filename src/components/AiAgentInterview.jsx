@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
+import { startMonitoring, stopMonitoring } from '../lib/behaviorMonitor';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8080';
 
@@ -81,6 +82,8 @@ export default function AiAgentInterview() {
   const [snapshotUrl, setSnapshotUrl] = useState(null);
   const [snapshotTime, setSnapshotTime] = useState(null);
   const [instructionsSpoken, setInstructionsSpoken] = useState(false);
+  const [meshWarning, setMeshWarning] = useState(false);
+  const [activitySummary, setActivitySummary] = useState(null);
 
   const messagesEndRef = useRef(null);
   const recognitionRef = useRef(null);
@@ -102,6 +105,9 @@ export default function AiAgentInterview() {
   const waitTimerRef = useRef(null);
   const hasStartedRef = useRef(false);
   const beginRef = useRef(null);
+  const turnCountRef = useRef(0);
+  const meshWarningShownRef = useRef(false);
+  const meshStartedRef = useRef(false);
 
   useEffect(() => { phaseRef.current = phase; }, [phase]);
 
@@ -526,6 +532,14 @@ export default function AiAgentInterview() {
           }
         } catch (e) {}
       };
+      const loadSummary = async () => {
+        try {
+          const res = await fetch(`${API_URL}/api/interview/${interviewId}/activity/summary`, {
+            headers: { ...authHeaders() }, cache: 'no-store'
+          });
+          if (res.ok) setActivitySummary(await res.json());
+        } catch (e) {}
+      };
       const poll = setInterval(async () => {
         try {
           const data = await fetch(`${API_URL}/api/interview/${interviewId}`, { headers: { ...authHeaders() } }).then(r => r.json());
@@ -536,6 +550,7 @@ export default function AiAgentInterview() {
           const list = await fetch(`${API_URL}/api/interview/${interviewId}/transcript`, { headers: { ...authHeaders() } }).then(r => r.json());
           setMonitorTranscript(list || []);
         } catch (e) {}
+        loadSummary();
       }, 5000);
       const initial = async () => {
         try {
@@ -550,6 +565,7 @@ export default function AiAgentInterview() {
       };
       initial();
       loadSnapshot();
+      loadSummary();
       const snapTimer = setInterval(loadSnapshot, 3000);
       return () => {
         clearInterval(poll);
@@ -626,6 +642,50 @@ export default function AiAgentInterview() {
     const id = setInterval(send, 4000);
     return () => clearInterval(id);
   }, [phase, videoStream]);
+
+  useEffect(() => {
+    if (isMonitor) return;
+    if (phase === 'active' && videoStream && videoRef.current && !meshStartedRef.current) {
+      meshStartedRef.current = true;
+      startMonitoring(videoRef.current, (type, detail) => {
+        logActivity(type, detail);
+        if (type === 'HEAD_TURN_LEFT' || type === 'HEAD_TURN_RIGHT' || type === 'LOOK_DOWN') {
+          turnCountRef.current += 1;
+          if (turnCountRef.current > 5 && !meshWarningShownRef.current) {
+            meshWarningShownRef.current = true;
+            setMeshWarning(true);
+            setTimeout(() => setMeshWarning(false), 8000);
+            try {
+              if (window.speechSynthesis) {
+                const u = new SpeechSynthesisUtterance(
+                  "Please don't turn away from the screen during the interview.");
+                u.rate = 1; u.volume = 1;
+                window.speechSynthesis.speak(u);
+              }
+            } catch (e) {}
+          }
+        }
+      }).catch(() => {});
+    }
+    if ((phase === 'complete' || phase === 'error') && meshStartedRef.current) {
+      meshStartedRef.current = false;
+      stopMonitoring();
+    }
+    return () => {
+      if (phase === 'complete' || phase === 'error' || phase === 'waiting') {
+        stopMonitoring();
+      }
+    };
+  }, [phase, videoStream, isMonitor, logActivity, interviewId]);
+
+  useEffect(() => {
+    return () => {
+      if (meshStartedRef.current) {
+        meshStartedRef.current = false;
+        stopMonitoring();
+      }
+    };
+  }, []);
 
   const requestMedia = async () => {
     let stream = null;
@@ -727,6 +787,42 @@ export default function AiAgentInterview() {
                 </div>
               ))}
             </div>
+
+            {activitySummary && (
+              <div style={{ marginTop: 16, width: '100%', maxWidth: 640 }}>
+                <div style={{ fontSize: 13, color: '#94a3b8', fontWeight: 600, marginBottom: 8, textTransform: 'uppercase', letterSpacing: 0.5 }}>
+                  Behavior Monitor
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8, marginBottom: 10 }}>
+                  {[
+                    ['Turned Left', activitySummary.counts?.HEAD_TURN_LEFT || 0, '#f59e0b'],
+                    ['Turned Right', activitySummary.counts?.HEAD_TURN_RIGHT || 0, '#f59e0b'],
+                    ['Looked Down', activitySummary.counts?.LOOK_DOWN || 0, '#f59e0b'],
+                    ['2+ Faces', activitySummary.counts?.MULTI_FACE || 0, '#ef4444'],
+                    ['Laughs', activitySummary.counts?.LAUGHING || 0, '#22c55e'],
+                    ['Total Flags', activitySummary.totalFlags || 0, '#3b82f6'],
+                  ].map(([label, val, color]) => (
+                    <div key={label} style={{ background: '#1e293b', borderRadius: 8, padding: '8px 10px', textAlign: 'center' }}>
+                      <div style={{ fontSize: 20, fontWeight: 700, color }}>{val}</div>
+                      <div style={{ fontSize: 11, color: '#94a3b8' }}>{label}</div>
+                    </div>
+                  ))}
+                </div>
+                {activitySummary.events && activitySummary.events.length > 0 && (
+                  <div style={{ maxHeight: 160, overflow: 'auto', background: '#1e293b', borderRadius: 8, padding: 10, fontSize: 12 }}>
+                    {activitySummary.events.slice(0, 40).map((e, i) => (
+                      <div key={i} style={{ display: 'flex', gap: 10, marginBottom: 4, alignItems: 'baseline' }}>
+                        <span style={{ color: '#64748b', whiteSpace: 'nowrap' }}>
+                          {e.time ? e.time.substring(11, 19) : ''}
+                        </span>
+                        <span style={{ color: '#e2e8f0', fontWeight: 600 }}>{e.type}</span>
+                        <span style={{ color: '#94a3b8' }}>{e.detail}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         </div>
         <div className="interview-chat" style={{ alignItems: 'center', justifyContent: 'center', display: 'flex' }}>
@@ -930,6 +1026,18 @@ export default function AiAgentInterview() {
         )}
 
         <div className="timer">{formatTime(elapsedSeconds)}</div>
+
+        {meshWarning && (
+          <div style={{
+            position: 'absolute', top: 16, left: '50%', transform: 'translateX(-50%)',
+            background: 'rgba(220,38,38,0.92)', color: 'white',
+            padding: '10px 22px', borderRadius: 10, fontSize: 14, fontWeight: 600,
+            zIndex: 20, textAlign: 'center', boxShadow: '0 10px 30px rgba(0,0,0,0.4)',
+            maxWidth: '90%',
+          }}>
+            ⚠ Please don't turn away from the screen during the interview.
+          </div>
+        )}
 
         <div className="ai-status">
           <span className="dot" style={{
