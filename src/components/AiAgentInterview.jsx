@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
-import { startMonitoring, stopMonitoring } from '../lib/behaviorMonitor';
+import { startMonitoring, stopMonitoring, warmUpModel } from '../lib/behaviorMonitor';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8080';
 
@@ -601,10 +601,10 @@ export default function AiAgentInterview() {
   }, [interviewId, isMonitor, startWaitTimer]);
 
   useEffect(() => {
-    if (videoStream && videoRef.current) {
+    if (videoStream && videoRef.current && videoRef.current.srcObject !== videoStream) {
       videoRef.current.srcObject = videoStream;
     }
-  }, [videoStream]);
+  }, [videoStream, phase]);
 
   useEffect(() => {
     if (phase === 'complete' || phase === 'error') {
@@ -695,6 +695,7 @@ export default function AiAgentInterview() {
       setCamStatus('granted');
       setVideoStream(stream);
       if (videoRef.current) videoRef.current.srcObject = stream;
+      warmUpModel().catch(() => {});
     } catch (e) {
       if (e && e.name === 'NotAllowedError') {
         setMicStatus('denied');

@@ -160,6 +160,11 @@ function detectLoop() {
   rafId = requestAnimationFrame(detectLoop);
 }
 
+export async function warmUpModel() {
+  if (landmarker) return;
+  landmarker = await loadVision();
+}
+
 export async function startMonitoring(videoEl, onEvent) {
   if (running) return;
   if (!videoEl) return;
