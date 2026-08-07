@@ -1,4 +1,4 @@
-import { createContext, useState, useMemo, useCallback, useEffect, useContext } from 'react';
+import { createContext, useState, useMemo, useCallback, useEffect, useContext, useRef } from 'react';
 import { AuthContext } from './AuthContext';
 import api from '../api/api';
 
@@ -15,10 +15,23 @@ export function OrgProvider({ children }) {
   });
 
   const { user } = useContext(AuthContext);
+  const restoredUserId = useRef(null);
 
   useEffect(() => {
-    if (!user?.userId || org) return;
+    if (!user?.userId || restoredUserId.current === user.userId) return;
+    restoredUserId.current = user.userId;
     let cancelled = false;
+
+    if (!org) {
+      const memberships = user.memberships;
+      if (Array.isArray(memberships) && memberships.length > 0) {
+        const first = memberships[0];
+        const minimal = { id: first.orgId, name: first.orgName };
+        setOrgState(minimal);
+        localStorage.setItem('recruit_org', JSON.stringify(minimal));
+      }
+    }
+
     api.get(`/api/organizations/mine/${user.userId}`)
       .then(res => {
         const list = res.data?.data || res.data || res;
@@ -28,8 +41,9 @@ export function OrgProvider({ children }) {
         }
       })
       .catch(() => {});
+
     return () => { cancelled = true; };
-  }, [user?.userId, org]);
+  }, [user?.userId]);
 
   const setOrg = useCallback((newOrg) => {
     setOrgState(newOrg);
