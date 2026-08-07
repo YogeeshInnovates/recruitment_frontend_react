@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 
 function isChrome() {
   const ua = navigator.userAgent;
@@ -6,6 +7,7 @@ function isChrome() {
 }
 
 export default function SystemCheck() {
+  const navigate = useNavigate();
   const [chromeOk] = useState(isChrome());
   const [speaker, setSpeaker] = useState('idle');
   const [mic, setMic] = useState('idle');
@@ -48,9 +50,9 @@ export default function SystemCheck() {
 
   const testMic = async () => {
     setMic('testing');
+    setMicLevel(0);
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      setMicStream(stream);
       const ctx = new (window.AudioContext || window.webkitAudioContext)();
       audioCtxRef.current = ctx;
       const source = ctx.createMediaStreamSource(stream);
@@ -61,6 +63,13 @@ export default function SystemCheck() {
       const data = new Uint8Array(analyser.frequencyBinCount);
       micOkRef.current = false;
       let ticks = 0;
+      let finished = false;
+      const finish = (ok) => {
+        if (finished) return;
+        finished = true;
+        stream.getTracks().forEach(t => t.stop());
+        setMic(ok ? 'passed' : 'failed');
+      };
       const loop = () => {
         analyser.getByteFrequencyData(data);
         let sum = 0;
@@ -70,12 +79,17 @@ export default function SystemCheck() {
         if (avg > 8) micOkRef.current = true;
         ticks++;
         if (micOkRef.current || ticks > 300) {
-          setMic(micOkRef.current ? 'passed' : 'failed');
+          finish(micOkRef.current);
           return;
         }
         micRafRef.current = requestAnimationFrame(loop);
       };
-      loop();
+      if (ctx.state === 'suspended') {
+        ctx.resume().then(loop).catch(loop);
+      } else {
+        loop();
+      }
+      setMicStream(stream);
     } catch (e) {
       if (e && (e.name === 'NotAllowedError' || e.name === 'SecurityError')) {
         setMic('denied');
@@ -111,6 +125,18 @@ export default function SystemCheck() {
 
   return (
     <div style={{ minHeight: '100vh', background: 'linear-gradient(135deg, #0f172a, #1e293b)', padding: '30px 16px', fontFamily: 'inherit', color: '#e2e8f0' }}>
+      <div style={{ maxWidth: 640, margin: '0 auto' }}>
+        <button
+          onClick={() => navigate('/')}
+          style={{
+            padding: '8px 14px', borderRadius: 8, border: '1px solid #334155',
+            background: 'transparent', color: '#cbd5e1', fontWeight: 700, fontSize: 13,
+            cursor: 'pointer', marginBottom: 12,
+          }}
+        >
+          ← Back to Home
+        </button>
+      </div>
       <div style={{ maxWidth: 640, margin: '0 auto', background: 'rgba(255,255,255,0.04)', border: '1px solid #334155', borderRadius: 16, padding: '28px 30px' }}>
         <div style={{ textAlign: 'center', marginBottom: 20 }}>
           <div style={{ fontSize: 44, marginBottom: 6 }}>🖥️</div>
