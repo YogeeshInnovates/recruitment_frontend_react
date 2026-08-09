@@ -30,7 +30,9 @@ async function handle(res, path, method) {
   }
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
-    throw new Error(err.message || err.error || err.detail || `${method} ${path} failed: ${res.status}`);
+    const e = new Error(err.message || err.error || err.detail || `${method} ${path} failed: ${res.status}`);
+    e.status = res.status;
+    throw e;
   }
   return res.json();
 }

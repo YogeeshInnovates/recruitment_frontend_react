@@ -23,9 +23,11 @@ export function AuthProvider({ children }) {
           setUser(fresh);
           localStorage.setItem('recruit_user', JSON.stringify(fresh));
         })
-        .catch(() => {
-          localStorage.removeItem('recruit_user');
-          setUser(null);
+        .catch(err => {
+          if (err?.status === 401) {
+            localStorage.removeItem('recruit_user');
+            setUser(null);
+          }
         })
         .finally(() => setLoading(false));
     } else {
