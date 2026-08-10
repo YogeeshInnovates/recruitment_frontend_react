@@ -6,12 +6,10 @@ import api from '../api/api';
 const MAX_RESUMES = 5;
 
 const ROUNDS = [
-  'HR Round',
-  'Technical Round 1',
-  'Technical Round 2',
-  'Technical Round 3',
-  'Managerial Round',
-  'Final HR / Fitment'
+  'Technical Interview 1',
+  'Technical Interview 2',
+  'Technical Interview 3',
+  'HR Round'
 ];
 
 const ROLE_SUGGESTIONS = [

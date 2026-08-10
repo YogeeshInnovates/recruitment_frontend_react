@@ -1,14 +1,10 @@
 import { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-
-function isChrome() {
-  const ua = navigator.userAgent;
-  return /Chrome|Edg\//.test(ua) && !/OPR/.test(ua) && !/Firefox/.test(ua);
-}
+import { isSupportedBrowser } from '../utils/browser';
 
 export default function SystemCheck() {
   const navigate = useNavigate();
-  const [chromeOk] = useState(isChrome());
+  const [chromeOk] = useState(isSupportedBrowser());
   const [speaker, setSpeaker] = useState('idle');
   const [mic, setMic] = useState('idle');
   const [cam, setCam] = useState('idle');

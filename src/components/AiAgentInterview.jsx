@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { startMonitoring, stopMonitoring, warmUpModel } from '../lib/behaviorMonitor';
+import { isSupportedBrowser, isIOS } from '../utils/browser';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8080';
 
@@ -102,6 +103,7 @@ export default function AiAgentInterview() {
   const countdownDebounceRef = useRef(null);
   const videoRef = useRef(null);
   const lastActivityEventRef = useRef({});
+  const lastEvidenceAtRef = useRef({});
   const waitTimerRef = useRef(null);
   const hasStartedRef = useRef(false);
   const beginRef = useRef(null);
@@ -134,6 +136,35 @@ export default function AiAgentInterview() {
         headers: { 'Content-Type': 'application/json', ...authHeaders() },
         body: JSON.stringify({ eventType, detail })
       }).catch(() => {});
+    } catch { /* ignore */ }
+  }, [interviewId]);
+
+  const EVIDENCE_TYPES = ['HEAD_TURN_LEFT', 'HEAD_TURN_RIGHT', 'LOOK_DOWN', 'MULTI_FACE', 'FACE_LOST', 'NO_BLINK', 'CAMERA_FROZEN', 'GAZE_OFF'];
+
+  const uploadEvidence = useCallback((eventType) => {
+    try {
+      if (!EVIDENCE_TYPES.includes(eventType)) return;
+      const now = Date.now();
+      if (now - (lastEvidenceAtRef.current[eventType] || 0) < 5000) return;
+      lastEvidenceAtRef.current[eventType] = now;
+      const v = videoRef.current;
+      if (!v || !v.videoWidth) return;
+      const canvas = document.createElement('canvas');
+      canvas.width = 640;
+      canvas.height = 480;
+      const ctx = canvas.getContext('2d');
+      ctx.drawImage(v, 0, 0, canvas.width, canvas.height);
+      canvas.toBlob((blob) => {
+        if (!blob) return;
+        const fd = new FormData();
+        fd.append('eventType', eventType);
+        fd.append('image', blob, `evidence_${eventType}_${Date.now()}.jpg`);
+        fetch(`${API_URL}/api/interview/${interviewId}/evidence`, {
+          method: 'POST',
+          headers: authHeaders(),
+          body: fd
+        }).catch(() => {});
+      }, 'image/jpeg', 0.7);
     } catch { /* ignore */ }
   }, [interviewId]);
 
@@ -649,6 +680,7 @@ export default function AiAgentInterview() {
       meshStartedRef.current = true;
       startMonitoring(videoRef.current, (type, detail) => {
         logActivity(type, detail);
+        uploadEvidence(type);
         if (type === 'HEAD_TURN_LEFT' || type === 'HEAD_TURN_RIGHT' || type === 'LOOK_DOWN') {
           turnCountRef.current += 1;
           if (turnCountRef.current > 5 && !meshWarningShownRef.current) {
@@ -676,7 +708,7 @@ export default function AiAgentInterview() {
         stopMonitoring();
       }
     };
-  }, [phase, videoStream, isMonitor, logActivity, interviewId]);
+  }, [phase, videoStream, isMonitor, logActivity, uploadEvidence, interviewId]);
 
   useEffect(() => {
     return () => {
@@ -743,6 +775,43 @@ export default function AiAgentInterview() {
     const s = (seconds % 60).toString().padStart(2, '0');
     return `${m}:${s}`;
   };
+
+  /* ---------------- Browser gate (candidates only) ---------------- */
+  if (!isMonitor && !isSupportedBrowser()) {
+    return (
+      <div className="interview-room">
+        <div className="interview-video" style={{ background: '#0f172a' }}>
+          <div className="waiting-room">
+            <div style={{ fontSize: 56, marginBottom: 16 }}>🌐</div>
+            <h2>Google Chrome (or Microsoft Edge) is required</h2>
+            <p style={{ maxWidth: 520, margin: '0 auto 16px', color: '#94a3b8', fontSize: 14, lineHeight: 1.7 }}>
+              This interview uses voice recognition and live monitoring, which only work in
+              <b> Google Chrome</b> or <b>Microsoft Edge</b>. Your current browser is not supported.
+            </p>
+            {isIOS() && (
+              <p style={{ color: '#fca5a5', fontSize: 14, marginBottom: 16 }}>
+                Voice answers are <b>not supported on iPhone/iPad</b>. Please join from a laptop or
+                desktop computer using Chrome or Edge.
+              </p>
+            )}
+            <a
+              href="https://www.google.com/chrome/"
+              target="_blank"
+              rel="noreferrer"
+              className="btn btn-primary"
+              style={{ textDecoration: 'none', display: 'inline-block', marginTop: 8 }}
+            >
+              Download Chrome
+            </a>
+            <p style={{ color: '#94a3b8', fontSize: 13, marginTop: 20 }}>
+              After installing, open this same interview link in Chrome.
+            </p>
+          </div>
+        </div>
+        <div className="interview-chat" />
+      </div>
+    );
+  }
 
   /* ---------------- Monitor view ---------------- */
   if (isMonitor) {

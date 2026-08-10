@@ -2,20 +2,27 @@ import { useState, useEffect, useContext } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { OrgContext } from '../App';
 import api from '../api/api';
+import InterviewReview from './InterviewReview';
 
 export default function ApplicationDetail() {
   const { org } = useContext(OrgContext);
   const { id } = useParams();
   const navigate = useNavigate();
   const [application, setApplication] = useState(null);
+  const [interviews, setInterviews] = useState([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     if (!org?.id) return;
-    api.get(`/api/organizations/${org.id}/applications/${id}`)
-      .then((res) => {
-        const data = res.data || res;
+    Promise.all([
+      api.get(`/api/organizations/${org.id}/applications/${id}`),
+      api.get(`/api/organizations/${org.id}/interviews/application/${id}`).catch(() => null),
+    ])
+      .then(([appRes, intRes]) => {
+        const data = appRes.data || appRes;
         setApplication(data);
+        const list = (intRes && intRes.data) || data.interviews || [];
+        setInterviews(list);
       })
       .catch((err) => console.error(err))
       .finally(() => setLoading(false));
@@ -100,12 +107,30 @@ export default function ApplicationDetail() {
             </div>
             <div className="actions-row">
               <Link to={`/interview/setup/${id}`} className="btn btn-primary">
-                🎤 Start Interview
+                ðŸŽ¤ Start Interview
               </Link>
             </div>
           </div>
         </div>
       </div>
+
+      {interviews.length > 0 && (
+        <div style={{ marginTop: 32 }}>
+          <h3 style={{ marginBottom: 12 }}>Interview Reviews</h3>
+          <div style={{ display: 'grid', gap: 16 }}>
+            {interviews.map((iv) => (
+              <InterviewReview
+                key={iv.id}
+                interview={iv}
+                candidateName={candidateName}
+                jobTitle={jobTitle}
+                jobDescription={jobPost.description || application.jobDescription || ''}
+                resumeText={candidate.resumeText || ''}
+              />
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
