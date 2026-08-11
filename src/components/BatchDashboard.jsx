@@ -38,6 +38,24 @@ export default function BatchDashboard() {
   const [reportData, setReportData] = useState(null);
   const [evidenceData, setEvidenceData] = useState(null);
   const [reportLoading, setReportLoading] = useState(false);
+  const [capturesFor, setCapturesFor] = useState(null);
+  const [capturesData, setCapturesData] = useState(null);
+  const [capturesLoading, setCapturesLoading] = useState(false);
+
+  const openCaptures = async (interviewId, name) => {
+    setCapturesFor(name);
+    setCapturesData(null);
+    setCapturesLoading(true);
+    try {
+      const evidence = await api.get(`/api/interview/${interviewId}/evidence`);
+      setCapturesData(evidence || { count: 0, items: [] });
+    } catch (err) {
+      setError(err.message || 'Failed to load captures');
+      setCapturesData({ count: 0, items: [] });
+    } finally {
+      setCapturesLoading(false);
+    }
+  };
 
   const openReport = async (interviewId, name) => {
     setReportFor(name);
@@ -174,6 +192,7 @@ export default function BatchDashboard() {
                         {st === 'over' ? (
                           <div className="bd-actions">
                             <button className="bd-btn" onClick={() => openReport(r.interviewId, r.name)}>📋 Report</button>
+                            <button className="bd-btn" onClick={() => openCaptures(r.interviewId, r.name)}>🖼 Captures</button>
                             <button className="bd-btn" onClick={() => download(r.interviewId, 'score')}>📊 Score</button>
                             <button className="bd-btn" onClick={() => download(r.interviewId, 'transcript')}>💬 Q&A</button>
                             <button className="bd-btn" onClick={() => download(r.interviewId, 'activity')}>🛡 Activity</button>
@@ -181,6 +200,7 @@ export default function BatchDashboard() {
                         ) : st === 'processing' || st === 'due' ? (
                           <div className="bd-actions">
                             <button className="bd-btn" onClick={() => openReport(r.interviewId, r.name)}>📋 Report</button>
+                            <button className="bd-btn" onClick={() => openCaptures(r.interviewId, r.name)}>🖼 Captures</button>
                             <a className="bd-btn bd-join" href={`/interview/${r.interviewId}?monitor=1`} target="_blank" rel="noreferrer">
                               👁 Join Monitor
                             </a>
@@ -312,6 +332,60 @@ export default function BatchDashboard() {
                   </div>
                 )}
               </>
+            )}
+          </div>
+        </div>
+      )}
+
+      {capturesFor && (
+        <div style={{
+          position: 'fixed', inset: 0, zIndex: 10000,
+          background: 'rgba(15, 23, 42, 0.75)', backdropFilter: 'blur(3px)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20,
+        }} onClick={() => setCapturesFor(null)}>
+          <div onClick={(e) => e.stopPropagation()} style={{
+            background: '#1e293b', border: '1px solid #334155', borderRadius: 14,
+            maxWidth: 720, width: '100%', maxHeight: '90vh', overflow: 'auto',
+            padding: 26, color: 'white', boxShadow: '0 20px 60px rgba(0,0,0,0.5)',
+          }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+              <h2 style={{ fontSize: 20, margin: 0 }}>🖼 Suspicious Captures</h2>
+              <button onClick={() => setCapturesFor(null)} style={{
+                background: 'none', border: 'none', color: '#94a3b8', fontSize: 22, cursor: 'pointer'
+              }}>✕</button>
+            </div>
+            <div style={{ fontSize: 14, color: '#94a3b8', marginBottom: 16 }}>
+              {capturesFor} — captured during the interview when sustained suspicious behavior was detected
+            </div>
+
+            {capturesLoading ? (
+              <div className="loading" style={{ padding: 30 }}><div className="spinner" /></div>
+            ) : !capturesData?.items?.length ? (
+              <p style={{ color: '#94a3b8', fontSize: 14, padding: '20px 0', textAlign: 'center' }}>
+                No suspicious captures for this interview yet.
+              </p>
+            ) : (
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: 12 }}>
+                {capturesData.items.map((it) => (
+                  <div key={it.id} style={{ background: '#0f172a', borderRadius: 10, overflow: 'hidden', border: '1px solid #334155' }}>
+                    {it.cloudinaryUrl ? (
+                      <a href={it.cloudinaryUrl} target="_blank" rel="noreferrer">
+                        <img src={it.cloudinaryUrl} alt={it.eventType} style={{ width: '100%', height: 120, objectFit: 'cover', display: 'block' }} />
+                      </a>
+                    ) : (
+                      <div style={{ height: 120, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, color: '#64748b', padding: 8, textAlign: 'center' }}>
+                        Image not persisted (Cloudinary not configured)
+                      </div>
+                    )}
+                    <div style={{ padding: '8px 10px' }}>
+                      <div style={{ fontSize: 12, fontWeight: 700, color: '#f59e0b' }}>{it.eventType}</div>
+                      <div style={{ fontSize: 11, color: '#94a3b8', marginTop: 2 }}>
+                        {it.capturedAt ? new Date(it.capturedAt).toLocaleString('en-IN') : ''}
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
             )}
           </div>
         </div>
