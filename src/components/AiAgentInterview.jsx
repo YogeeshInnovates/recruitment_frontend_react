@@ -85,6 +85,7 @@ export default function AiAgentInterview() {
   const [instructionsSpoken, setInstructionsSpoken] = useState(false);
   const [meshWarning, setMeshWarning] = useState(false);
   const [activitySummary, setActivitySummary] = useState(null);
+  const [evidenceData, setEvidenceData] = useState(null);
 
   const messagesEndRef = useRef(null);
   const recognitionRef = useRef(null);
@@ -571,6 +572,14 @@ export default function AiAgentInterview() {
           if (res.ok) setActivitySummary(await res.json());
         } catch (e) {}
       };
+      const loadEvidence = async () => {
+        try {
+          const res = await fetch(`${API_URL}/api/interview/${interviewId}/evidence`, {
+            headers: { ...authHeaders() }, cache: 'no-store'
+          });
+          if (res.ok) setEvidenceData(await res.json());
+        } catch (e) {}
+      };
       const poll = setInterval(async () => {
         try {
           const data = await fetch(`${API_URL}/api/interview/${interviewId}`, { headers: { ...authHeaders() } }).then(r => r.json());
@@ -582,6 +591,7 @@ export default function AiAgentInterview() {
           setMonitorTranscript(list || []);
         } catch (e) {}
         loadSummary();
+        loadEvidence();
       }, 5000);
       const initial = async () => {
         try {
@@ -597,6 +607,7 @@ export default function AiAgentInterview() {
       initial();
       loadSnapshot();
       loadSummary();
+      loadEvidence();
       const snapTimer = setInterval(loadSnapshot, 3000);
       return () => {
         clearInterval(poll);
@@ -681,7 +692,7 @@ export default function AiAgentInterview() {
       startMonitoring(videoRef.current, (type, detail) => {
         logActivity(type, detail);
         uploadEvidence(type);
-        if (type === 'HEAD_TURN_LEFT' || type === 'HEAD_TURN_RIGHT' || type === 'LOOK_DOWN') {
+        if (type === 'HEAD_TURN_LEFT' || type === 'HEAD_TURN_RIGHT' || type === 'LOOK_DOWN' || type === 'GAZE_OFF' || type === 'NO_BLINK' || type === 'FACE_LOST') {
           turnCountRef.current += 1;
           if (turnCountRef.current > 5 && !meshWarningShownRef.current) {
             meshWarningShownRef.current = true;
@@ -868,6 +879,9 @@ export default function AiAgentInterview() {
                     ['Turned Left', activitySummary.counts?.HEAD_TURN_LEFT || 0, '#f59e0b'],
                     ['Turned Right', activitySummary.counts?.HEAD_TURN_RIGHT || 0, '#f59e0b'],
                     ['Looked Down', activitySummary.counts?.LOOK_DOWN || 0, '#f59e0b'],
+                    ['Gaze Off Screen', activitySummary.counts?.GAZE_OFF || 0, '#f59e0b'],
+                    ['Eyes Closed', activitySummary.counts?.NO_BLINK || 0, '#ef4444'],
+                    ['Face Lost', activitySummary.counts?.FACE_LOST || 0, '#ef4444'],
                     ['2+ Faces', activitySummary.counts?.MULTI_FACE || 0, '#ef4444'],
                     ['Laughs', activitySummary.counts?.LAUGHING || 0, '#22c55e'],
                     ['Total Flags', activitySummary.totalFlags || 0, '#3b82f6'],
@@ -889,6 +903,34 @@ export default function AiAgentInterview() {
                         <span style={{ color: '#94a3b8' }}>{e.detail}</span>
                       </div>
                     ))}
+                  </div>
+                )}
+                {evidenceData?.items?.length > 0 && (
+                  <div style={{ marginTop: 14 }}>
+                    <div style={{ fontSize: 12, color: '#94a3b8', fontWeight: 600, marginBottom: 8, textTransform: 'uppercase', letterSpacing: 0.5 }}>
+                      🖼 Suspicious Captures ({evidenceData.items.length}) — click to enlarge
+                    </div>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8 }}>
+                      {evidenceData.items.map((it) => (
+                        <div key={it.id} style={{ background: '#0f172a', borderRadius: 8, overflow: 'hidden', border: '1px solid #334155' }}>
+                          {it.cloudinaryUrl ? (
+                            <a href={it.cloudinaryUrl} target="_blank" rel="noreferrer">
+                              <img src={it.cloudinaryUrl} alt={it.eventType} style={{ width: '100%', height: 80, objectFit: 'cover', display: 'block' }} />
+                            </a>
+                          ) : (
+                            <div style={{ height: 80, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, color: '#64748b', padding: 6, textAlign: 'center' }}>
+                              Image not persisted
+                            </div>
+                          )}
+                          <div style={{ padding: '5px 7px' }}>
+                            <div style={{ fontSize: 10, fontWeight: 700, color: '#f59e0b' }}>{it.eventType}</div>
+                            <div style={{ fontSize: 9, color: '#94a3b8' }}>
+                              {it.capturedAt ? new Date(it.capturedAt).toLocaleTimeString('en-IN') : ''}
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
                   </div>
                 )}
               </div>

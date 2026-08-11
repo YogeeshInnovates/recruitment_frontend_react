@@ -36,15 +36,21 @@ export default function BatchDashboard() {
   const [now, setNow] = useState(new Date());
   const [reportFor, setReportFor] = useState(null);
   const [reportData, setReportData] = useState(null);
+  const [evidenceData, setEvidenceData] = useState(null);
   const [reportLoading, setReportLoading] = useState(false);
 
   const openReport = async (interviewId, name) => {
     setReportFor(name);
     setReportData(null);
+    setEvidenceData(null);
     setReportLoading(true);
     try {
-      const data = await api.get(`/api/interview/${interviewId}/activity/summary`);
+      const [data, evidence] = await Promise.all([
+        api.get(`/api/interview/${interviewId}/activity/summary`),
+        api.get(`/api/interview/${interviewId}/evidence`).catch(() => null),
+      ]);
       setReportData(data || null);
+      setEvidenceData(evidence || null);
     } catch (err) {
       setError(err.message || 'Failed to load report');
     } finally {
@@ -231,6 +237,9 @@ export default function BatchDashboard() {
                     ['Turned Left', reportData.counts?.HEAD_TURN_LEFT || 0, '#f59e0b'],
                     ['Turned Right', reportData.counts?.HEAD_TURN_RIGHT || 0, '#f59e0b'],
                     ['Looked Down', reportData.counts?.LOOK_DOWN || 0, '#f59e0b'],
+                    ['Gaze Off Screen', reportData.counts?.GAZE_OFF || 0, '#f59e0b'],
+                    ['Eyes Closed', reportData.counts?.NO_BLINK || 0, '#ef4444'],
+                    ['Face Lost', reportData.counts?.FACE_LOST || 0, '#ef4444'],
                     ['2+ Faces', reportData.counts?.MULTI_FACE || 0, '#ef4444'],
                     ['Laughs', reportData.counts?.LAUGHING || 0, '#22c55e'],
                     ['Tab Switches', reportData.counts?.TAB_SWITCH || 0, '#ef4444'],
@@ -253,6 +262,12 @@ export default function BatchDashboard() {
                   {(reportData.totalFlags || 0) >= 5 ? '⚠ SUSPICIOUS' : '✓ CLEAN'}
                 </div>
 
+                <div style={{ fontSize: 11, color: '#64748b', lineHeight: 1.6, marginBottom: 14, padding: '8px 12px', background: '#0f172a', borderRadius: 8 }}>
+                  Smart 3D monitor (on-device, matrix head pose + iris gaze) · Head turn: safe ±20° / suspicious ±35° ·
+                  Pitch down 15°/25° · Pitch up 12°/20° · Iris off-screen &gt; 0.60 · Eyes closed EAR &lt; 0.20 ·
+                  Sustain before capture: turn / head-down 4s · gaze off 3s · eyes closed 6s · face lost 5s · attention score 0–100
+                </div>
+
                 {reportData.events && reportData.events.length > 0 && (
                   <div>
                     <div style={{ fontSize: 13, color: '#94a3b8', fontWeight: 600, marginBottom: 8, textTransform: 'uppercase', letterSpacing: 0.5 }}>
@@ -264,6 +279,33 @@ export default function BatchDashboard() {
                           <span style={{ color: '#64748b', whiteSpace: 'nowrap' }}>{e.time ? e.time.substring(11, 19) : ''}</span>
                           <span style={{ color: '#e2e8f0', fontWeight: 600, whiteSpace: 'nowrap' }}>{e.type}</span>
                           <span style={{ color: '#94a3b8' }}>{e.detail}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {evidenceData?.items?.length > 0 && (
+                  <div style={{ marginTop: 16 }}>
+                    <div style={{ fontSize: 13, color: '#94a3b8', fontWeight: 600, marginBottom: 8, textTransform: 'uppercase', letterSpacing: 0.5 }}>
+                      🖼 Suspicious Captures ({evidenceData.items.length})
+                    </div>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))', gap: 10 }}>
+                      {evidenceData.items.map((it) => (
+                        <div key={it.id} style={{ background: '#0f172a', borderRadius: 10, overflow: 'hidden', border: '1px solid #334155' }}>
+                          {it.cloudinaryUrl ? (
+                            <img src={it.cloudinaryUrl} alt={it.eventType} style={{ width: '100%', height: 100, objectFit: 'cover', display: 'block' }} />
+                          ) : (
+                            <div style={{ height: 100, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, color: '#64748b', padding: 8, textAlign: 'center' }}>
+                              Image not persisted (Cloudinary not configured)
+                            </div>
+                          )}
+                          <div style={{ padding: '6px 8px' }}>
+                            <div style={{ fontSize: 11, fontWeight: 700, color: '#f59e0b' }}>{it.eventType}</div>
+                            <div style={{ fontSize: 10, color: '#94a3b8', marginTop: 2 }}>
+                              {it.capturedAt ? new Date(it.capturedAt).toLocaleString('en-IN') : ''}
+                            </div>
+                          </div>
                         </div>
                       ))}
                     </div>
