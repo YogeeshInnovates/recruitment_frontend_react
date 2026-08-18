@@ -457,19 +457,6 @@ export default function AiAgentInterview() {
     isProcessingRef.current = true;
     stopMic();
 
-    const lastAiMsg = conversationHistoryRef.current
-      .filter(m => m.role === 'assistant').pop();
-    if (lastAiMsg) {
-      const aiWords = new Set(lastAiMsg.content.toLowerCase().split(/\s+/));
-      const userWords = userMessage.toLowerCase().split(/\s+/);
-      const common = userWords.filter(w => aiWords.has(w)).length;
-      if (userWords.length > 3 && common / userWords.length > 0.5) {
-        isProcessingRef.current = false;
-        setTimeout(() => startMic(), 1000);
-        return;
-      }
-    }
-
     const stopPhrases = ["stop the interview", "not interested", "end the interview", "i want to stop", "please stop", "i'm done", "i am done", "cancel interview"];
     if (stopPhrases.some(p => userMessage.toLowerCase().includes(p))) {
       setMessages(prev => [...prev, { role: 'candidate', content: userMessage }]);
