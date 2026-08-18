@@ -86,6 +86,9 @@ export default function AiAgentInterview() {
   const [meshWarning, setMeshWarning] = useState(false);
   const [activitySummary, setActivitySummary] = useState(null);
   const [evidenceData, setEvidenceData] = useState(null);
+  const [micBlocked, setMicBlocked] = useState(false);
+  const [showTextInput, setShowTextInput] = useState(false);
+  const [typedAnswer, setTypedAnswer] = useState('');
 
   const messagesEndRef = useRef(null);
   const recognitionRef = useRef(null);
@@ -111,6 +114,7 @@ export default function AiAgentInterview() {
   const turnCountRef = useRef(0);
   const meshWarningShownRef = useRef(false);
   const meshStartedRef = useRef(false);
+  const speechFailCountRef = useRef(0);
 
   useEffect(() => { phaseRef.current = phase; }, [phase]);
 
@@ -126,6 +130,14 @@ export default function AiAgentInterview() {
     }
     return () => { if (timerRef.current) clearInterval(timerRef.current); };
   }, [phase]);
+
+  useEffect(() => {
+    return () => {
+      if (idleTimerRef.current) clearTimeout(idleTimerRef.current);
+      if (countdownIntervalRef.current) clearInterval(countdownIntervalRef.current);
+      if (countdownDebounceRef.current) clearTimeout(countdownDebounceRef.current);
+    };
+  }, []);
 
   const logActivity = useCallback((eventType, detail) => {
     try {
@@ -244,16 +256,23 @@ export default function AiAgentInterview() {
       const accumulated = accumulatedTranscriptRef.current.trim();
       if (accumulated) {
         accumulatedTranscriptRef.current = '';
+        setMicBlocked(false);
+        setShowTextInput(false);
         sendToAIRef.current(accumulated);
       } else if (lastSpeechRef.current.trim()) {
         const speech = lastSpeechRef.current.trim();
         lastSpeechRef.current = '';
+        setMicBlocked(false);
+        setShowTextInput(false);
         sendToAIRef.current(speech);
       } else {
         consecutiveSilenceRef.current += 1;
+        speechFailCountRef.current += 1;
         if (consecutiveSilenceRef.current >= 3) {
           sendToAIRef.current("No answer received, end the interview");
         } else if (consecutiveSilenceRef.current >= 2) {
+          setMicBlocked(true);
+          setShowTextInput(true);
           sendToAIRef.current("No answer received, let me ask something else");
         } else {
           sendToAIRef.current("No answer received, ask me to repeat");
@@ -271,6 +290,8 @@ export default function AiAgentInterview() {
       recognitionRef.current.start();
       setIsListening(true);
       setMicActive(true);
+      setMicBlocked(false);
+      setShowTextInput(false);
       if (idleTimerRef.current) clearTimeout(idleTimerRef.current);
       idleTimerRef.current = setTimeout(idleTimerCallback, 15000);
       startCountdown();
@@ -384,6 +405,18 @@ export default function AiAgentInterview() {
 
   sendToAIRef.current = sendToAI;
 
+  const submitTypedAnswer = useCallback(() => {
+    const text = typedAnswer.trim();
+    if (!text || isProcessingRef.current || phaseRef.current !== 'active') return;
+    setTypedAnswer('');
+    setShowTextInput(false);
+    setMicBlocked(false);
+    stopMic();
+    accumulatedTranscriptRef.current = '';
+    lastSpeechRef.current = '';
+    sendToAIRef.current(text);
+  }, [typedAnswer, stopMic]);
+
   useEffect(() => {
     if (isMonitor) return;
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
@@ -415,10 +448,12 @@ export default function AiAgentInterview() {
         accumulatedTranscriptRef.current += newFinal + ' ';
         noSpeechCountRef.current = 0;
         consecutiveSilenceRef.current = 0;
+        speechFailCountRef.current = 0;
         lastSpeechRef.current = '';
       } else if (interimTranscript) {
         lastSpeechRef.current = interimTranscript;
         consecutiveSilenceRef.current = 0;
+        speechFailCountRef.current = 0;
       }
 
       if (newFinal || interimTranscript) {
@@ -449,6 +484,17 @@ export default function AiAgentInterview() {
       if (event.error === 'aborted') {
         if (!isProcessingRef.current && phaseRef.current === 'active') {
           setTimeout(() => startMic(), 500);
+        }
+      } else if (event.error === 'no-speech') {
+        speechFailCountRef.current += 1;
+        if (speechFailCountRef.current >= 2 && phaseRef.current === 'active') {
+          setMicBlocked(true);
+        }
+      } else if (event.error === 'not-allowed' || event.error === 'audio-capture' || event.error === 'service-not-allowed') {
+        speechFailCountRef.current += 1;
+        if (phaseRef.current === 'active') {
+          setMicBlocked(true);
+          setShowTextInput(true);
         }
       }
     };
@@ -1205,27 +1251,65 @@ export default function AiAgentInterview() {
           <div ref={messagesEndRef} />
         </div>
 
+        {micBlocked && (
+          <div style={{
+            margin: '0 16px 8px', padding: '10px 14px', borderRadius: 10,
+            background: '#451a03', border: '1px solid #b45309', color: '#fbbf24',
+            fontSize: 13, lineHeight: 1.5, textAlign: 'center',
+          }}>
+            ⚠ Your microphone may not be working. Please check your browser mic permissions, or type your answer below.
+          </div>
+        )}
+
         <div className="chat-input-area" style={{
           justifyContent: 'center', padding: '16px 20px',
           background: 'rgba(15, 23, 42, 0.8)',
         }}>
-          <div style={{
-            display: 'flex', alignItems: 'center', gap: 12, width: '100%', justifyContent: 'center',
-          }}>
+          {showTextInput ? (
+            <div style={{ display: 'flex', gap: 8, width: '100%' }}>
+              <input
+                type="text"
+                value={typedAnswer}
+                onChange={(e) => setTypedAnswer(e.target.value)}
+                onKeyDown={(e) => { if (e.key === 'Enter') submitTypedAnswer(); }}
+                placeholder="Type your answer here..."
+                autoFocus
+                style={{
+                  flex: 1, padding: '12px 16px', borderRadius: 10, border: '1px solid #334155',
+                  background: '#0f172a', color: 'white', fontSize: 14, outline: 'none',
+                }}
+              />
+              <button
+                onClick={submitTypedAnswer}
+                disabled={!typedAnswer.trim()}
+                style={{
+                  padding: '12px 20px', borderRadius: 10, border: 'none',
+                  background: typedAnswer.trim() ? '#10b981' : '#334155',
+                  color: 'white', fontSize: 14, fontWeight: 600, cursor: typedAnswer.trim() ? 'pointer' : 'not-allowed',
+                }}
+              >
+                Send
+              </button>
+            </div>
+          ) : (
             <div style={{
-              width: 56, height: 56, borderRadius: '50%',
-              background: isListening ? '#ef4444' : '#10b981',
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              fontSize: 24, color: 'white', cursor: 'pointer',
-              boxShadow: isListening ? '0 0 20px rgba(239, 68, 68, 0.5)' : '0 0 20px rgba(16, 185, 129, 0.5)',
-              animation: isListening ? 'pulse 1s infinite' : 'none',
+              display: 'flex', alignItems: 'center', gap: 12, width: '100%', justifyContent: 'center',
             }}>
-              {isListening ? '🎙' : '🔇'}
+              <div style={{
+                width: 56, height: 56, borderRadius: '50%',
+                background: isListening ? '#ef4444' : '#10b981',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                fontSize: 24, color: 'white', cursor: 'pointer',
+                boxShadow: isListening ? '0 0 20px rgba(239, 68, 68, 0.5)' : '0 0 20px rgba(16, 185, 129, 0.5)',
+                animation: isListening ? 'pulse 1s infinite' : 'none',
+              }}>
+                {isListening ? '🎙' : '🔇'}
+              </div>
+              <div style={{ color: '#94a3b8', fontSize: 14 }}>
+                {isListening ? 'Speak now - auto-submits after silence' : aiSpeaking ? 'AI is speaking...' : 'Connecting...'}
+              </div>
             </div>
-            <div style={{ color: '#94a3b8', fontSize: 14 }}>
-              {isListening ? 'Speak now - auto-submits after silence' : aiSpeaking ? 'AI is speaking...' : 'Connecting...'}
-            </div>
-          </div>
+          )}
         </div>
       </div>
     </div>
