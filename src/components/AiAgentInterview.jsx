@@ -115,6 +115,9 @@ export default function AiAgentInterview() {
   const meshWarningShownRef = useRef(false);
   const meshStartedRef = useRef(false);
   const speechFailCountRef = useRef(0);
+  const audioContextRef = useRef(null);
+  const audioAnalyserRef = useRef(null);
+  const secondVoiceIntervalRef = useRef(null);
 
   useEffect(() => { phaseRef.current = phase; }, [phase]);
 
@@ -197,6 +200,110 @@ export default function AiAgentInterview() {
       document.removeEventListener('visibilitychange', onVis);
       window.removeEventListener('blur', onBlur);
       window.removeEventListener('focus', onFocus);
+    };
+  }, [interviewId, isMonitor, phase, logActivity]);
+
+  useEffect(() => {
+    if (!interviewId || isMonitor || phase !== 'active') return;
+
+    const blockCopy = (e) => { e.preventDefault(); logActivity('COPY_BLOCKED', 'Candidate attempted to copy text'); };
+    const blockCut = (e) => { e.preventDefault(); logActivity('CUT_BLOCKED', 'Candidate attempted to cut text'); };
+    const blockPaste = (e) => { e.preventDefault(); logActivity('PASTE_BLOCKED', 'Candidate attempted to paste text'); };
+    const blockContextMenu = (e) => { e.preventDefault(); logActivity('RIGHT_CLICK', 'Candidate attempted right-click'); };
+
+    const blockedShortcuts = [
+      { ctrl: true, key: 'c', name: 'Copy' },
+      { ctrl: true, key: 'v', name: 'Paste' },
+      { ctrl: true, key: 'x', name: 'Cut' },
+      { ctrl: true, key: 'u', name: 'View Source' },
+      { ctrl: true, key: 's', name: 'Save Page' },
+      { ctrl: true, key: 'a', name: 'Select All' },
+      { ctrl: true, key: 'p', name: 'Print' },
+      { ctrl: true, key: 'shift', name: 'DevTools' },
+      { ctrl: true, key: 'i', name: 'DevTools' },
+      { ctrl: true, key: 'j', name: 'DevTools' },
+    ];
+    const blockKeys = (e) => {
+      const ctrl = e.ctrlKey || e.metaKey;
+      if (e.key === 'F12') { e.preventDefault(); logActivity('F12_BLOCKED', 'Candidate pressed F12 (DevTools)'); return; }
+      if (e.key === 'PrintScreen') { e.preventDefault(); logActivity('PRINTSCREEN', 'Candidate pressed PrintScreen'); return; }
+      if (e.key === 'Escape') { e.preventDefault(); logActivity('ESC_BLOCKED', 'Candidate pressed Escape'); return; }
+      if (ctrl) {
+        const match = blockedShortcuts.find(s => s.ctrl && s.key.toLowerCase() === e.key.toLowerCase());
+        if (match) { e.preventDefault(); logActivity('SHORTCUT_BLOCKED', `Candidate pressed Ctrl+${e.key.toUpperCase()} (${match.name})`); }
+      }
+    };
+
+    let screenShareDetected = false;
+    const origGetDisplayMedia = navigator.mediaDevices?.getDisplayMedia;
+    if (origGetDisplayMedia) {
+      navigator.mediaDevices.getDisplayMedia = function (...args) {
+        if (!screenShareDetected) {
+          screenShareDetected = true;
+          logActivity('SCREEN_SHARE_ATTEMPT', 'Candidate attempted to share screen');
+        }
+        return origGetDisplayMedia.apply(this, args);
+      };
+    }
+
+    let secondVoiceDetected = false;
+    let audioCtx = null;
+    let analyser = null;
+    let micStream = null;
+    const startSecondVoiceDetection = async () => {
+      try {
+        micStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        const source = audioCtx.createMediaStreamSource(micStream);
+        analyser = audioCtx.createAnalyser();
+        analyser.fftSize = 512;
+        analyser.smoothingTimeConstant = 0.5;
+        source.connect(analyser);
+        audioContextRef.current = audioCtx;
+        audioAnalyserRef.current = analyser;
+
+        const bufLen = analyser.frequencyBinCount;
+        const data = new Uint8Array(bufLen);
+        let highAmplitudeCount = 0;
+
+        secondVoiceIntervalRef.current = setInterval(() => {
+          if (phaseRef.current !== 'active') return;
+          analyser.getByteFrequencyData(data);
+          let sum = 0;
+          for (let i = 0; i < bufLen; i++) sum += data[i];
+          const avg = sum / bufLen;
+          if (avg > 40) {
+            highAmplitudeCount++;
+            if (highAmplitudeCount >= 6 && !secondVoiceDetected) {
+              secondVoiceDetected = true;
+              logActivity('SECOND_VOICE', 'Possible second voice or someone reading answers detected (sustained high audio)');
+            }
+          } else {
+            highAmplitudeCount = Math.max(0, highAmplitudeCount - 1);
+          }
+        }, 500);
+      } catch (e) {
+        console.log('Second voice detection unavailable:', e.message);
+      }
+    };
+    startSecondVoiceDetection();
+
+    document.addEventListener('copy', blockCopy);
+    document.addEventListener('cut', blockCut);
+    document.addEventListener('paste', blockPaste);
+    document.addEventListener('contextmenu', blockContextMenu);
+    document.addEventListener('keydown', blockKeys);
+
+    return () => {
+      document.removeEventListener('copy', blockCopy);
+      document.removeEventListener('cut', blockCut);
+      document.removeEventListener('paste', blockPaste);
+      document.removeEventListener('contextmenu', blockContextMenu);
+      document.removeEventListener('keydown', blockKeys);
+      if (origGetDisplayMedia) navigator.mediaDevices.getDisplayMedia = origGetDisplayMedia;
+      if (secondVoiceIntervalRef.current) clearInterval(secondVoiceIntervalRef.current);
+      if (micStream) micStream.getTracks().forEach(t => t.stop());
+      if (audioCtx && audioCtx.state !== 'closed') audioCtx.close();
     };
   }, [interviewId, isMonitor, phase, logActivity]);
 

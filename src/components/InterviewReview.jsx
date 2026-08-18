@@ -23,6 +23,16 @@ const EVENT_LABELS = {
   ANSWER_PASTED: 'Answer pasted',
   SUSPICIOUS_FAST_ANSWER: 'Suspiciously fast answer',
   WINDOW_BLUR: 'Window blurred',
+  COPY_BLOCKED: 'Attempted to copy text',
+  CUT_BLOCKED: 'Attempted to cut text',
+  PASTE_BLOCKED: 'Attempted to paste text',
+  RIGHT_CLICK: 'Right-click attempted',
+  F12_BLOCKED: 'Pressed F12 (DevTools)',
+  PRINTSCREEN: 'Pressed PrintScreen',
+  ESC_BLOCKED: 'Pressed Escape',
+  SHORTCUT_BLOCKED: 'Blocked keyboard shortcut',
+  SCREEN_SHARE_ATTEMPT: 'Attempted screen share',
+  SECOND_VOICE: 'Possible second voice detected',
 };
 
 export default function InterviewReview({ interview, candidateName, jobTitle, jobDescription, resumeText }) {

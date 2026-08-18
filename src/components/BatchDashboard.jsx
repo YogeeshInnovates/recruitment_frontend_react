@@ -264,6 +264,11 @@ export default function BatchDashboard() {
                     ['Laughs', reportData.counts?.LAUGHING || 0, '#22c55e'],
                     ['Tab Switches', reportData.counts?.TAB_SWITCH || 0, '#ef4444'],
                     ['Page Blurs', reportData.counts?.PAGE_BLUR || 0, '#ef4444'],
+                    ['Paste Attempts', (reportData.counts?.PASTE_BLOCKED || 0) + (reportData.counts?.COPY_BLOCKED || 0) + (reportData.counts?.CUT_BLOCKED || 0), '#ef4444'],
+                    ['Shortcut Blocks', reportData.counts?.SHORTCUT_BLOCKED || 0, '#ef4444'],
+                    ['Right-Clicks', reportData.counts?.RIGHT_CLICK || 0, '#f59e0b'],
+                    ['Screen Share', reportData.counts?.SCREEN_SHARE_ATTEMPT || 0, '#ef4444'],
+                    ['2nd Voice', reportData.counts?.SECOND_VOICE || 0, '#ef4444'],
                     ['Total Flags', reportData.totalFlags || 0, '#3b82f6'],
                   ].map(([label, val, color]) => (
                     <div key={label} style={{ background: '#0f172a', borderRadius: 10, padding: '10px 8px', textAlign: 'center' }}>
