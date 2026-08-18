@@ -25,6 +25,97 @@ function computeStatus(row, now) {
   return 'scheduled';
 }
 
+function MultiLiveGrid({ rows, now }) {
+  const [snapshots, setSnapshots] = useState({});
+  const [activityCounts, setActivityCounts] = useState({});
+  const [errors, setErrors] = useState({});
+
+  useEffect(() => {
+    if (!rows.length) return;
+    const loadAll = async () => {
+      rows.forEach(async (r) => {
+        try {
+          const [snapRes, actRes] = await Promise.all([
+            api.get(`/api/interview/${r.interviewId}/snapshot`),
+            api.get(`/api/interview/${r.interviewId}/activity/summary`),
+          ]);
+          setSnapshots(prev => ({ ...prev, [r.interviewId]: snapRes.data?.[0] || null }));
+          setActivityCounts(prev => ({ ...prev, [r.interviewId]: actRes.data?.counts || {} }));
+        } catch (e) {
+          setErrors(prev => ({ ...prev, [r.interviewId]: e.message }));
+        }
+      });
+    };
+    loadAll();
+    const t = setInterval(loadAll, 6000);
+    return () => clearInterval(t);
+  }, [rows]);
+
+  const cols = Math.min(rows.length, 2);
+  const gridCols = cols === 1 ? '1fr' : 'repeat(2, 1fr)';
+
+  return (
+    <div style={{ display: 'grid', gridTemplateColumns: gridCols, gap: 12 }}>
+      {rows.map(r => {
+        const snap = snapshots[r.interviewId];
+        const counts = activityCounts[r.interviewId] || {};
+        const totalFlags = Object.values(counts).reduce((s, v) => s + v, 0);
+        const hasFlags = totalFlags > 0;
+        return (
+          <div key={r.interviewId} style={{
+            background: '#1e293b', borderRadius: 12, overflow: 'hidden', border: hasFlags ? '2px solid #ef4444' : '1px solid #334155',
+          }}>
+            <div style={{ padding: '8px 12px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #334155' }}>
+              <div>
+                <div style={{ fontSize: 14, fontWeight: 700 }}>{r.name}</div>
+                <div style={{ fontSize: 11, color: '#94a3b8' }}>{r.candidateEmail}</div>
+              </div>
+              {hasFlags && (
+                <div style={{ background: '#ef4444', color: 'white', borderRadius: 8, padding: '2px 8px', fontSize: 11, fontWeight: 700 }}>
+                  {totalFlags} flags
+                </div>
+              )}
+            </div>
+            <div style={{ background: '#0f172a', minHeight: 180, display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative' }}>
+              {snap?.imageUrl ? (
+                <img src={snap.imageUrl} alt="" style={{ width: '100%', height: 200, objectFit: 'cover' }} />
+              ) : errors[r.interviewId] ? (
+                <span style={{ color: '#ef4444', fontSize: 12 }}>⚠ {errors[r.interviewId]}</span>
+              ) : (
+                <span style={{ color: '#64748b', fontSize: 12 }}>Waiting for snapshot…</span>
+              )}
+            </div>
+            <div style={{ padding: '8px 12px' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 6 }}>
+                {[
+                  ['TAB', 'TAB_SWITCH', counts.TAB_SWITCH],
+                  ['BLUR', 'PAGE_BLUR', counts.PAGE_BLUR],
+                  ['PASTE', 'PASTE', (counts.PASTE_BLOCKED || 0) + (counts.COPY_BLOCKED || 0)],
+                  ['KEYS', 'SHORTCUT', counts.SHORTCUT_BLOCKED],
+                  ['SCR', 'SCREEN_SHARE', counts.SCREEN_SHARE_ATTEMPT],
+                  ['VOICE', '2ND_VOICE', counts.SECOND_VOICE],
+                  ['FACE', 'MULTI_FACE', counts.MULTI_FACE],
+                  ['DOWN', 'LOOK_DOWN', counts.LOOK_DOWN],
+                  ['LOST', 'FACE_LOST', counts.FACE_LOST],
+                ].map(([icon, key, val]) => (
+                  <div key={key} style={{ textAlign: 'center' }}>
+                    <div style={{ fontSize: 16, fontWeight: 700, color: (val || 0) > 0 ? '#ef4444' : '#22c55e' }}>{val || 0}</div>
+                    <div style={{ fontSize: 10, color: '#94a3b8' }}>{icon}</div>
+                  </div>
+                ))}
+              </div>
+              <a href={`/interview/${r.interviewId}?monitor=1`} target="_blank" rel="noreferrer" style={{
+                display: 'block', textAlign: 'center', marginTop: 10, padding: '6px 10px', borderRadius: 8,
+                background: '#3b82f6', color: 'white', fontSize: 12, fontWeight: 700, textDecoration: 'none',
+              }}>Open Full Monitor →</a>
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
 export default function BatchDashboard() {
   const { org } = useContext(OrgContext);
   const { jobId } = useParams();
@@ -41,6 +132,7 @@ export default function BatchDashboard() {
   const [capturesFor, setCapturesFor] = useState(null);
   const [capturesData, setCapturesData] = useState(null);
   const [capturesLoading, setCapturesLoading] = useState(false);
+  const [multiLive, setMultiLive] = useState(false);
 
   const openCaptures = async (interviewId, name) => {
     setCapturesFor(name);
@@ -131,6 +223,12 @@ export default function BatchDashboard() {
           <div className="bd-stat bd-stat-red"><span className="bd-stat-num">{stats.due}</span><span>Due Now</span></div>
           <div className="bd-stat bd-stat-orange"><span className="bd-stat-num">{stats.processing}</span><span>Processing</span></div>
           <div className="bd-stat bd-stat-green"><span className="bd-stat-num">{stats.over}</span><span>Completed</span></div>
+          {(stats.due + stats.processing) > 0 && (
+            <div className="bd-stat" style={{ cursor: 'pointer' }} onClick={() => setMultiLive(true)}>
+              <span className="bd-stat-num" style={{ color: '#ef4444' }}>👁</span>
+              <span style={{ color: '#ef4444', fontWeight: 700 }}>Watch Live</span>
+            </div>
+          )}
         </div>
 
         {error && <div className="abs-error">{error}</div>}
@@ -392,6 +490,27 @@ export default function BatchDashboard() {
                 ))}
               </div>
             )}
+          </div>
+        </div>
+      )}
+      {multiLive && (
+        <div style={{
+          position: 'fixed', inset: 0, zIndex: 9999,
+          background: 'rgba(15, 23, 42, 0.88)', backdropFilter: 'blur(4px)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 14,
+        }} onClick={() => setMultiLive(false)}>
+          <div onClick={(e) => e.stopPropagation()} style={{
+            background: '#0f172a', border: '1px solid #1e293b', borderRadius: 14,
+            maxWidth: 1100, width: '100%', maxHeight: '94vh', overflow: 'auto',
+            padding: 22, color: 'white', boxShadow: '0 20px 60px rgba(0,0,0,0.6)',
+          }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
+              <h2 style={{ fontSize: 18, margin: 0 }}>👁 Live Monitor — {rows.filter(r => computeStatus(r, now) === 'processing' || computeStatus(r, now) === 'due').length} Active Candidate(s)</h2>
+              <button onClick={() => setMultiLive(false)} style={{
+                background: 'none', border: 'none', color: '#94a3b8', fontSize: 22, cursor: 'pointer'
+              }}>✕</button>
+            </div>
+            <MultiLiveGrid rows={rows.filter(r => computeStatus(r, now) === 'processing' || computeStatus(r, now) === 'due')} now={now} />
           </div>
         </div>
       )}
