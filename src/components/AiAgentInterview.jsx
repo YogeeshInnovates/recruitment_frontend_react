@@ -320,6 +320,8 @@ export default function AiAgentInterview() {
     }
   }, []);
 
+  const countdownCompleteRef = useRef(null);
+
   const clearCountdown = () => {
     setCountdown(null);
     if (countdownIntervalRef.current) {
@@ -330,12 +332,36 @@ export default function AiAgentInterview() {
       clearTimeout(countdownDebounceRef.current);
       countdownDebounceRef.current = null;
     }
+    if (countdownCompleteRef.current) {
+      const cb = countdownCompleteRef.current;
+      countdownCompleteRef.current = null;
+      cb();
+    }
   };
 
   const startCountdown = () => {
-    setCountdown(15);
+    setCountdown(10);
     if (countdownIntervalRef.current) clearInterval(countdownIntervalRef.current);
-    let sec = 15;
+    let sec = 10;
+    countdownCompleteRef.current = () => {
+      if (phaseRef.current === 'active' && !isProcessingRef.current && sendToAIRef.current) {
+        const accumulated = accumulatedTranscriptRef.current.trim();
+        if (accumulated) {
+          accumulatedTranscriptRef.current = '';
+          setMicBlocked(false);
+          setShowTextInput(false);
+          sendToAIRef.current(accumulated);
+        } else if (lastSpeechRef.current.trim()) {
+          const speech = lastSpeechRef.current.trim();
+          lastSpeechRef.current = '';
+          setMicBlocked(false);
+          setShowTextInput(false);
+          sendToAIRef.current(speech);
+        } else {
+          sendToAIRef.current("No answer received, let's move to the next question");
+        }
+      }
+    };
     countdownIntervalRef.current = setInterval(() => {
       sec -= 1;
       setCountdown(sec);
@@ -346,9 +372,28 @@ export default function AiAgentInterview() {
   const scheduleCountdown = () => {
     if (countdownDebounceRef.current) clearTimeout(countdownDebounceRef.current);
     countdownDebounceRef.current = setTimeout(() => {
-      setCountdown(13);
+      setCountdown(10);
       if (countdownIntervalRef.current) clearInterval(countdownIntervalRef.current);
-      let sec = 13;
+      let sec = 10;
+      countdownCompleteRef.current = () => {
+        if (phaseRef.current === 'active' && !isProcessingRef.current && sendToAIRef.current) {
+          const accumulated = accumulatedTranscriptRef.current.trim();
+          if (accumulated) {
+            accumulatedTranscriptRef.current = '';
+            setMicBlocked(false);
+            setShowTextInput(false);
+            sendToAIRef.current(accumulated);
+          } else if (lastSpeechRef.current.trim()) {
+            const speech = lastSpeechRef.current.trim();
+            lastSpeechRef.current = '';
+            setMicBlocked(false);
+            setShowTextInput(false);
+            sendToAIRef.current(speech);
+          } else {
+            sendToAIRef.current("No answer received, let's move to the next question");
+          }
+        }
+      };
       countdownIntervalRef.current = setInterval(() => {
         sec -= 1;
         setCountdown(sec);
@@ -400,7 +445,7 @@ export default function AiAgentInterview() {
       setMicBlocked(false);
       setShowTextInput(false);
       if (idleTimerRef.current) clearTimeout(idleTimerRef.current);
-      idleTimerRef.current = setTimeout(idleTimerCallback, 15000);
+      idleTimerRef.current = setTimeout(idleTimerCallback, 10000);
       startCountdown();
     } catch (e) {
       console.log('Mic start error:', e);
@@ -577,7 +622,7 @@ export default function AiAgentInterview() {
 
       if ((newFinal || interimTranscript) && idleTimerRef.current) {
         clearTimeout(idleTimerRef.current);
-        idleTimerRef.current = setTimeout(idleTimerCallback, 15000);
+        idleTimerRef.current = setTimeout(idleTimerCallback, 10000);
         scheduleCountdown();
       }
 
