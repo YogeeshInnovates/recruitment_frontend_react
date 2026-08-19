@@ -341,9 +341,9 @@ export default function AiAgentInterview() {
   };
 
   const startCountdown = () => {
-    setCountdown(10);
+    setCountdown(25);
     if (countdownIntervalRef.current) clearInterval(countdownIntervalRef.current);
-    let sec = 10;
+    let sec = 25;
     countdownCompleteRef.current = () => {
       if (phaseRef.current === 'active' && !isProcessingRef.current && sendToAIRef.current) {
         const accumulated = accumulatedTranscriptRef.current.trim();
@@ -373,7 +373,7 @@ export default function AiAgentInterview() {
   const scheduleCountdown = () => {
     if (countdownDebounceRef.current) clearTimeout(countdownDebounceRef.current);
     countdownDebounceRef.current = setTimeout(() => {
-      setCountdown(10);
+    setCountdown(25);
       if (countdownIntervalRef.current) clearInterval(countdownIntervalRef.current);
       let sec = 10;
       countdownCompleteRef.current = () => {
@@ -446,7 +446,7 @@ export default function AiAgentInterview() {
       setMicBlocked(false);
       setShowTextInput(false);
       if (idleTimerRef.current) clearTimeout(idleTimerRef.current);
-      idleTimerRef.current = setTimeout(idleTimerCallback, 10000);
+      idleTimerRef.current = setTimeout(idleTimerCallback, 30000);
       startCountdown();
     } catch (e) {
       console.log('Mic start error:', e);
@@ -610,7 +610,7 @@ export default function AiAgentInterview() {
 
       if ((newFinal || interimTranscript) && idleTimerRef.current) {
         clearTimeout(idleTimerRef.current);
-        idleTimerRef.current = setTimeout(idleTimerCallback, 10000);
+      idleTimerRef.current = setTimeout(idleTimerCallback, 30000);
         scheduleCountdown();
       }
 
@@ -922,6 +922,7 @@ export default function AiAgentInterview() {
       stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
       setMicStatus('granted');
       setCamStatus('granted');
+      videoStreamRef.current = stream;
       setVideoStream(stream);
       if (videoRef.current) videoRef.current.srcObject = stream;
       warmUpModel().catch(() => {});
@@ -973,9 +974,13 @@ export default function AiAgentInterview() {
     };
   }, [phase, videoStream]);
 
+  const videoStreamRef = useRef(null);
+
   const releaseMedia = useCallback(() => {
-    if (videoStream) {
-      videoStream.getTracks().forEach(t => { try { t.stop(); } catch (e) {} });
+    const stream = videoStreamRef.current;
+    if (stream) {
+      stream.getTracks().forEach(t => { try { t.stop(); } catch (e) {} });
+      videoStreamRef.current = null;
       setVideoStream(null);
     }
     if (recognitionRef.current) {
@@ -988,7 +993,7 @@ export default function AiAgentInterview() {
     if (secondVoiceIntervalRef.current) {
       clearInterval(secondVoiceIntervalRef.current);
     }
-  }, [videoStream, stopMic]);
+  }, [stopMic]);
 
   useEffect(() => {
     const handleBeforeUnload = () => {
