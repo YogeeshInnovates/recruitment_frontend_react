@@ -89,6 +89,7 @@ export default function AiAgentInterview() {
   const [micBlocked, setMicBlocked] = useState(false);
   const [showTextInput, setShowTextInput] = useState(false);
   const [typedAnswer, setTypedAnswer] = useState('');
+  const [micLevel, setMicLevel] = useState(0);
 
   const messagesEndRef = useRef(null);
   const recognitionRef = useRef(null);
@@ -947,6 +948,75 @@ export default function AiAgentInterview() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [phase]);
 
+  useEffect(() => {
+    if (phase !== 'check' || !videoStream) return;
+    let audioCtx, analyser, animFrame;
+    try {
+      audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      const source = audioCtx.createMediaStreamSource(videoStream);
+      analyser = audioCtx.createAnalyser();
+      analyser.fftSize = 256;
+      source.connect(analyser);
+      const data = new Uint8Array(analyser.frequencyBinCount);
+      const tick = () => {
+        analyser.getByteFrequencyData(data);
+        let sum = 0;
+        for (let i = 0; i < data.length; i++) sum += data[i];
+        setMicLevel(Math.min(100, Math.round((sum / data.length) * 1.5)));
+        animFrame = requestAnimationFrame(tick);
+      };
+      tick();
+    } catch (e) {}
+    return () => {
+      if (animFrame) cancelAnimationFrame(animFrame);
+      if (audioCtx && audioCtx.state !== 'closed') audioCtx.close();
+    };
+  }, [phase, videoStream]);
+
+  const releaseMedia = useCallback(() => {
+    if (videoStream) {
+      videoStream.getTracks().forEach(t => { try { t.stop(); } catch (e) {} });
+      setVideoStream(null);
+    }
+    if (recognitionRef.current) {
+      try { recognitionRef.current.stop(); } catch (e) {}
+    }
+    stopMic();
+    if (audioContextRef.current && audioContextRef.current.state !== 'closed') {
+      try { audioContextRef.current.close(); } catch (e) {}
+    }
+    if (secondVoiceIntervalRef.current) {
+      clearInterval(secondVoiceIntervalRef.current);
+    }
+  }, [videoStream, stopMic]);
+
+  useEffect(() => {
+    const handleBeforeUnload = () => {
+      releaseMedia();
+    };
+    const handlePopState = () => {
+      releaseMedia();
+    };
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    window.addEventListener('popstate', handlePopState);
+    return () => {
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+      window.removeEventListener('popstate', handlePopState);
+    };
+  }, [releaseMedia]);
+
+  useEffect(() => {
+    if (phase === 'complete' || phase === 'error') {
+      releaseMedia();
+    }
+  }, [phase, releaseMedia]);
+
+  useEffect(() => {
+    return () => {
+      releaseMedia();
+    };
+  }, []);
+
   const canContinue = () =>
     speechSupported === true &&
     speakerSupported === true &&
@@ -1202,6 +1272,14 @@ export default function AiAgentInterview() {
               </div>
               <div className={`check-item ${micStatus === 'granted' ? 'ok' : 'fail'}`}>
                 <span>{micStatus === 'granted' ? '✓' : '✕'}</span> Microphone (required)
+                {micStatus === 'granted' && (
+                  <div style={{ marginTop: 6, height: 8, borderRadius: 4, background: '#1e293b', overflow: 'hidden', width: '100%' }}>
+                    <div style={{ height: '100%', borderRadius: 4, transition: 'width 0.1s', width: `${micLevel}%`, background: micLevel > 50 ? '#10b981' : micLevel > 10 ? '#f59e0b' : '#334155' }} />
+                  </div>
+                )}
+                {micStatus === 'granted' && micLevel > 5 && (
+                  <div className="check-sub" style={{ color: '#10b981' }}>Mic is picking up your voice</div>
+                )}
                 {micStatus !== 'granted' && (
                   <div className="check-sub">
                     {micStatus === 'denied'
@@ -1229,6 +1307,7 @@ export default function AiAgentInterview() {
               <video ref={videoRef} autoPlay playsInline muted style={{ width: 180, borderRadius: 10, border: '1px solid #334155', background: '#000', margin: '12px 0' }} />
             )}
             <div style={{ display: 'flex', gap: 12, justifyContent: 'center', marginTop: 8, flexWrap: 'wrap' }}>
+              <button className="btn btn-outline" onClick={() => { releaseMedia(); navigate('/'); }}>Back</button>
               <button className="btn btn-outline" onClick={requestMedia}>Test Camera & Mic</button>
               <button className="btn btn-primary" onClick={() => setPhase('instructions')} disabled={!canContinue()}>
                 Continue
@@ -1355,6 +1434,7 @@ export default function AiAgentInterview() {
             <p style={{ color: '#94a3b8', marginBottom: 20 }}>
               Thank you for your time! We will get back to you soon.
             </p>
+            <button className="btn btn-primary" onClick={() => { releaseMedia(); navigate('/'); }}>Close & Exit</button>
           </div>
         )}
 
