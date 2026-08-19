@@ -341,9 +341,9 @@ export default function AiAgentInterview() {
   };
 
   const startCountdown = () => {
-    setCountdown(25);
+    setCountdown(10);
     if (countdownIntervalRef.current) clearInterval(countdownIntervalRef.current);
-    let sec = 25;
+    let sec = 10;
     countdownCompleteRef.current = () => {
       if (phaseRef.current === 'active' && !isProcessingRef.current && sendToAIRef.current) {
         const accumulated = accumulatedTranscriptRef.current.trim();
@@ -373,7 +373,7 @@ export default function AiAgentInterview() {
   const scheduleCountdown = () => {
     if (countdownDebounceRef.current) clearTimeout(countdownDebounceRef.current);
     countdownDebounceRef.current = setTimeout(() => {
-    setCountdown(25);
+    setCountdown(10);
       if (countdownIntervalRef.current) clearInterval(countdownIntervalRef.current);
       let sec = 10;
       countdownCompleteRef.current = () => {
@@ -446,7 +446,7 @@ export default function AiAgentInterview() {
       setMicBlocked(false);
       setShowTextInput(false);
       if (idleTimerRef.current) clearTimeout(idleTimerRef.current);
-      idleTimerRef.current = setTimeout(idleTimerCallback, 30000);
+      idleTimerRef.current = setTimeout(idleTimerCallback, 10000);
       startCountdown();
     } catch (e) {
       console.log('Mic start error:', e);
@@ -610,7 +610,7 @@ export default function AiAgentInterview() {
 
       if ((newFinal || interimTranscript) && idleTimerRef.current) {
         clearTimeout(idleTimerRef.current);
-      idleTimerRef.current = setTimeout(idleTimerCallback, 30000);
+      idleTimerRef.current = setTimeout(idleTimerCallback, 10000);
         scheduleCountdown();
       }
 
