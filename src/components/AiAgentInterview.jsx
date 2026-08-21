@@ -344,9 +344,9 @@ export default function AiAgentInterview() {
   };
 
   const startCountdown = () => {
-    setCountdown(15);
+    setCountdown(10);
     if (countdownIntervalRef.current) clearInterval(countdownIntervalRef.current);
-    let sec = 15;
+    let sec = 10;
     countdownCompleteRef.current = () => {
       if (phaseRef.current === 'active' && !isProcessingRef.current && sendToAIRef.current) {
         const accumulated = accumulatedTranscriptRef.current.trim();
@@ -376,9 +376,9 @@ export default function AiAgentInterview() {
   const scheduleCountdown = () => {
     if (countdownDebounceRef.current) clearTimeout(countdownDebounceRef.current);
     countdownDebounceRef.current = setTimeout(() => {
-    setCountdown(15);
+    setCountdown(10);
       if (countdownIntervalRef.current) clearInterval(countdownIntervalRef.current);
-      let sec = 15;
+      let sec = 10;
       countdownCompleteRef.current = () => {
         if (phaseRef.current === 'active' && !isProcessingRef.current && sendToAIRef.current) {
           const accumulated = accumulatedTranscriptRef.current.trim();
@@ -451,7 +451,7 @@ export default function AiAgentInterview() {
       setShowTextInput(false);
       setCountdown(null);
       if (idleTimerRef.current) clearTimeout(idleTimerRef.current);
-      idleTimerRef.current = setTimeout(idleTimerCallback, 15000);
+      idleTimerRef.current = setTimeout(idleTimerCallback, 10000);
     } catch (e) {
       console.log('Mic start error:', e);
     }
@@ -614,11 +614,11 @@ export default function AiAgentInterview() {
 
       if (newFinal && idleTimerRef.current) {
         clearTimeout(idleTimerRef.current);
-        idleTimerRef.current = setTimeout(idleTimerCallback, 15000);
-        scheduleCountdown();
-      } else if (interimTranscript && idleTimerRef.current) {
-        clearTimeout(idleTimerRef.current);
-        idleTimerRef.current = setTimeout(idleTimerCallback, 15000);
+        idleTimerRef.current = setTimeout(idleTimerCallback, 10000);
+      scheduleCountdown();
+    } else if (interimTranscript && idleTimerRef.current) {
+      clearTimeout(idleTimerRef.current);
+      idleTimerRef.current = setTimeout(idleTimerCallback, 10000);
       }
 
       const displayText = accumulatedTranscriptRef.current.trim() || interimTranscript;
