@@ -207,18 +207,21 @@ export default function AiAgentInterview() {
   useEffect(() => {
     if (!interviewId || isMonitor || phase !== 'active') return;
 
-    const blockCopy = (e) => { e.preventDefault(); logActivity('COPY_BLOCKED', 'Candidate attempted to copy text'); };
+    const isInInput = (e) => {
+      const el = e.target;
+      return el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.isContentEditable;
+    };
+
+    const blockCopy = (e) => { logActivity('COPY_BLOCKED', 'Candidate attempted to copy text'); };
     const blockCut = (e) => { e.preventDefault(); logActivity('CUT_BLOCKED', 'Candidate attempted to cut text'); };
-    const blockPaste = (e) => { e.preventDefault(); logActivity('PASTE_BLOCKED', 'Candidate attempted to paste text'); };
+    const blockPaste = (e) => { if (isInInput(e)) { e.preventDefault(); logActivity('PASTE_BLOCKED', 'Candidate attempted to paste into input'); } };
     const blockContextMenu = (e) => { e.preventDefault(); logActivity('RIGHT_CLICK', 'Candidate attempted right-click'); };
 
     const blockedShortcuts = [
-      { ctrl: true, key: 'c', name: 'Copy' },
       { ctrl: true, key: 'v', name: 'Paste' },
       { ctrl: true, key: 'x', name: 'Cut' },
       { ctrl: true, key: 'u', name: 'View Source' },
       { ctrl: true, key: 's', name: 'Save Page' },
-      { ctrl: true, key: 'a', name: 'Select All' },
       { ctrl: true, key: 'p', name: 'Print' },
       { ctrl: true, key: 'shift', name: 'DevTools' },
       { ctrl: true, key: 'i', name: 'DevTools' },
