@@ -344,9 +344,9 @@ export default function AiAgentInterview() {
   };
 
   const startCountdown = () => {
-    setCountdown(10);
+    setCountdown(15);
     if (countdownIntervalRef.current) clearInterval(countdownIntervalRef.current);
-    let sec = 10;
+    let sec = 15;
     countdownCompleteRef.current = () => {
       if (phaseRef.current === 'active' && !isProcessingRef.current && sendToAIRef.current) {
         const accumulated = accumulatedTranscriptRef.current.trim();
@@ -376,9 +376,9 @@ export default function AiAgentInterview() {
   const scheduleCountdown = () => {
     if (countdownDebounceRef.current) clearTimeout(countdownDebounceRef.current);
     countdownDebounceRef.current = setTimeout(() => {
-    setCountdown(10);
+    setCountdown(15);
       if (countdownIntervalRef.current) clearInterval(countdownIntervalRef.current);
-      let sec = 10;
+      let sec = 15;
       countdownCompleteRef.current = () => {
         if (phaseRef.current === 'active' && !isProcessingRef.current && sendToAIRef.current) {
           const accumulated = accumulatedTranscriptRef.current.trim();
@@ -403,7 +403,7 @@ export default function AiAgentInterview() {
         setCountdown(sec);
         if (sec <= 0) clearCountdown();
       }, 1000);
-    }, 2000);
+    }, 5000);
   };
 
   const idleTimerCallback = useCallback(() => {
@@ -442,15 +442,16 @@ export default function AiAgentInterview() {
     setCandidateSpeech('');
     setShowSubtitle('');
     lastSpeechRef.current = '';
+    accumulatedTranscriptRef.current = '';
     try {
       recognitionRef.current.start();
       setIsListening(true);
       setMicActive(true);
       setMicBlocked(false);
       setShowTextInput(false);
+      setCountdown(null);
       if (idleTimerRef.current) clearTimeout(idleTimerRef.current);
-      idleTimerRef.current = setTimeout(idleTimerCallback, 10000);
-      startCountdown();
+      idleTimerRef.current = setTimeout(idleTimerCallback, 15000);
     } catch (e) {
       console.log('Mic start error:', e);
     }
@@ -611,10 +612,13 @@ export default function AiAgentInterview() {
         }
       }
 
-      if ((newFinal || interimTranscript) && idleTimerRef.current) {
+      if (newFinal && idleTimerRef.current) {
         clearTimeout(idleTimerRef.current);
-      idleTimerRef.current = setTimeout(idleTimerCallback, 10000);
+        idleTimerRef.current = setTimeout(idleTimerCallback, 15000);
         scheduleCountdown();
+      } else if (interimTranscript && idleTimerRef.current) {
+        clearTimeout(idleTimerRef.current);
+        idleTimerRef.current = setTimeout(idleTimerCallback, 15000);
       }
 
       const displayText = accumulatedTranscriptRef.current.trim() || interimTranscript;
