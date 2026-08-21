@@ -336,72 +336,38 @@ export default function AiAgentInterview() {
       clearTimeout(countdownDebounceRef.current);
       countdownDebounceRef.current = null;
     }
-    if (countdownCompleteRef.current) {
-      const cb = countdownCompleteRef.current;
-      countdownCompleteRef.current = null;
-      cb();
-    }
+    countdownCompleteRef.current = null;
   };
 
   const startCountdown = () => {
     setCountdown(10);
     if (countdownIntervalRef.current) clearInterval(countdownIntervalRef.current);
     let sec = 10;
-    countdownCompleteRef.current = () => {
-      if (phaseRef.current === 'active' && !isProcessingRef.current && sendToAIRef.current) {
-        const accumulated = accumulatedTranscriptRef.current.trim();
-        if (accumulated) {
-          accumulatedTranscriptRef.current = '';
-          setMicBlocked(false);
-          setShowTextInput(false);
-          sendToAIRef.current(accumulated);
-        } else if (lastSpeechRef.current.trim()) {
-          const speech = lastSpeechRef.current.trim();
-          lastSpeechRef.current = '';
-          setMicBlocked(false);
-          setShowTextInput(false);
-          sendToAIRef.current(speech);
-        } else {
-          sendToAIRef.current("No answer received, let's move to the next question");
-        }
-      }
-    };
+    countdownCompleteRef.current = () => {};
     countdownIntervalRef.current = setInterval(() => {
       sec -= 1;
       setCountdown(sec);
-      if (sec <= 0) clearCountdown();
+      if (sec <= 0) {
+        clearInterval(countdownIntervalRef.current);
+        countdownIntervalRef.current = null;
+        countdownCompleteRef.current = null;
+      }
     }, 1000);
   };
 
   const scheduleCountdown = () => {
     if (countdownDebounceRef.current) clearTimeout(countdownDebounceRef.current);
     countdownDebounceRef.current = setTimeout(() => {
-    setCountdown(10);
+      setCountdown(10);
       if (countdownIntervalRef.current) clearInterval(countdownIntervalRef.current);
       let sec = 10;
-      countdownCompleteRef.current = () => {
-        if (phaseRef.current === 'active' && !isProcessingRef.current && sendToAIRef.current) {
-          const accumulated = accumulatedTranscriptRef.current.trim();
-          if (accumulated) {
-            accumulatedTranscriptRef.current = '';
-            setMicBlocked(false);
-            setShowTextInput(false);
-            sendToAIRef.current(accumulated);
-          } else if (lastSpeechRef.current.trim()) {
-            const speech = lastSpeechRef.current.trim();
-            lastSpeechRef.current = '';
-            setMicBlocked(false);
-            setShowTextInput(false);
-            sendToAIRef.current(speech);
-          } else {
-            sendToAIRef.current("No answer received, let's move to the next question");
-          }
-        }
-      };
       countdownIntervalRef.current = setInterval(() => {
         sec -= 1;
         setCountdown(sec);
-        if (sec <= 0) clearCountdown();
+        if (sec <= 0) {
+          clearInterval(countdownIntervalRef.current);
+          countdownIntervalRef.current = null;
+        }
       }, 1000);
     }, 5000);
   };
