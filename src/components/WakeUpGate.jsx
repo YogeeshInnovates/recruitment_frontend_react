@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react';
 import { BASE_URL } from '../api/api';
 
-const FASTAPI_URL = 'https://interview-agent-service.onrender.com';
 const ATTEMPT_TIMEOUT_MS = 60000;
 const RETRY_DELAY_MS = 3000;
 
@@ -11,7 +10,9 @@ async function pingWithTimeout(url, timeoutMs) {
   try {
     const res = await fetch(url, { signal: controller.signal });
     clearTimeout(timer);
-    return res.ok;
+    if (!res.ok) return false;
+    const data = await res.json();
+    return data;
   } catch {
     clearTimeout(timer);
     return false;
@@ -35,19 +36,19 @@ export default function WakeUpGate({ children }) {
 
     async function run() {
       while (!cancelled) {
-        const [springOk, fastapiOk] = await Promise.all([
-          pingWithTimeout(`${BASE_URL}/api/warmup`, ATTEMPT_TIMEOUT_MS),
-          pingWithTimeout(`${FASTAPI_URL}/health`, ATTEMPT_TIMEOUT_MS),
-        ]);
+        const data = await pingWithTimeout(`${BASE_URL}/api/warmup`, ATTEMPT_TIMEOUT_MS);
 
-        if (!cancelled) {
-          setSpringUp(springOk);
-          setFastapiUp(fastapiOk);
-        }
+        if (!cancelled && data) {
+          setSpringUp(true);
+          setFastapiUp(data.fastapi === true);
 
-        if (springOk && fastapiOk) {
-          if (!cancelled) setPhase('ready');
-          return;
+          if (data.fastapi) {
+            setPhase('ready');
+            return;
+          }
+        } else if (!cancelled) {
+          setSpringUp(false);
+          setFastapiUp(false);
         }
 
         if (cancelled) return;
