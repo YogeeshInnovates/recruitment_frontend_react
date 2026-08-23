@@ -187,7 +187,7 @@ export default function InterviewReview({ interview, candidateName, jobTitle, jo
         api.get(`/api/interview/${interviewId}/malpractice-report`),
         api.get(`/api/interview/${interviewId}/transcript`),
       ]);
-      const transcript = tr?.data || [];
+      const transcript = Array.isArray(tr) ? tr : tr?.data || [];
       const questions = [];
       const answers = [];
       transcript.forEach((t) => {

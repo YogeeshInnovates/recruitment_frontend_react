@@ -156,7 +156,7 @@ export default function AiAgentInterview() {
     } catch { /* ignore */ }
   }, [interviewId]);
 
-  const EVIDENCE_TYPES = ['HEAD_TURN_LEFT', 'HEAD_TURN_RIGHT', 'LOOK_DOWN', 'MULTI_FACE', 'FACE_LOST', 'NO_BLINK', 'CAMERA_FROZEN', 'GAZE_OFF'];
+  const EVIDENCE_TYPES = ['HEAD_TURN_LEFT', 'HEAD_TURN_RIGHT', 'LOOK_DOWN', 'MULTI_FACE', 'FACE_LOST', 'NO_BLINK', 'CAMERA_FROZEN', 'GAZE_OFF', 'TAB_SWITCH', 'PAGE_BLUR', 'PASTE_BLOCKED', 'COPY_BLOCKED', 'CUT_BLOCKED', 'SHORTCUT_BLOCKED', 'RIGHT_CLICK', 'SCREEN_SHARE_ATTEMPT', 'SECOND_VOICE'];
 
   const uploadEvidence = useCallback((eventType) => {
     try {
@@ -188,10 +188,10 @@ export default function AiAgentInterview() {
   useEffect(() => {
     if (!interviewId || isMonitor || phase !== 'active') return;
     const onVis = () => {
-      if (document.hidden) logActivity('TAB_SWITCH', 'Candidate left the interview tab');
+      if (document.hidden) { logActivity('TAB_SWITCH', 'Candidate left the interview tab'); uploadEvidence('TAB_SWITCH'); }
     };
     const onBlur = () => {
-      if (!document.hidden) logActivity('PAGE_BLUR', 'Candidate window lost focus');
+      if (!document.hidden) { logActivity('PAGE_BLUR', 'Candidate window lost focus'); uploadEvidence('PAGE_BLUR'); }
     };
     const onFocus = () => logActivity('RETURN_TO_TAB', 'Candidate returned to the interview tab');
     document.addEventListener('visibilitychange', onVis);
@@ -202,7 +202,7 @@ export default function AiAgentInterview() {
       window.removeEventListener('blur', onBlur);
       window.removeEventListener('focus', onFocus);
     };
-  }, [interviewId, isMonitor, phase, logActivity]);
+  }, [interviewId, isMonitor, phase, logActivity, uploadEvidence]);
 
   useEffect(() => {
     if (!interviewId || isMonitor || phase !== 'active') return;
@@ -212,10 +212,10 @@ export default function AiAgentInterview() {
       return el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.isContentEditable;
     };
 
-    const blockCopy = (e) => { logActivity('COPY_BLOCKED', 'Candidate attempted to copy text'); };
-    const blockCut = (e) => { e.preventDefault(); logActivity('CUT_BLOCKED', 'Candidate attempted to cut text'); };
-    const blockPaste = (e) => { if (isInInput(e)) { e.preventDefault(); logActivity('PASTE_BLOCKED', 'Candidate attempted to paste into input'); } };
-    const blockContextMenu = (e) => { e.preventDefault(); logActivity('RIGHT_CLICK', 'Candidate attempted right-click'); };
+    const blockCopy = (e) => { logActivity('COPY_BLOCKED', 'Candidate attempted to copy text'); uploadEvidence('COPY_BLOCKED'); };
+    const blockCut = (e) => { e.preventDefault(); logActivity('CUT_BLOCKED', 'Candidate attempted to cut text'); uploadEvidence('CUT_BLOCKED'); };
+    const blockPaste = (e) => { if (isInInput(e)) { e.preventDefault(); logActivity('PASTE_BLOCKED', 'Candidate attempted to paste into input'); uploadEvidence('PASTE_BLOCKED'); } };
+    const blockContextMenu = (e) => { e.preventDefault(); logActivity('RIGHT_CLICK', 'Candidate attempted right-click'); uploadEvidence('RIGHT_CLICK'); };
 
     const blockedShortcuts = [
       { ctrl: true, key: 'v', name: 'Paste' },
@@ -234,7 +234,7 @@ export default function AiAgentInterview() {
       if (e.key === 'Escape') { e.preventDefault(); logActivity('ESC_BLOCKED', 'Candidate pressed Escape'); return; }
       if (ctrl) {
         const match = blockedShortcuts.find(s => s.ctrl && s.key.toLowerCase() === e.key.toLowerCase());
-        if (match) { e.preventDefault(); logActivity('SHORTCUT_BLOCKED', `Candidate pressed Ctrl+${e.key.toUpperCase()} (${match.name})`); }
+        if (match) { e.preventDefault(); logActivity('SHORTCUT_BLOCKED', `Candidate pressed Ctrl+${e.key.toUpperCase()} (${match.name})`); uploadEvidence('SHORTCUT_BLOCKED'); }
       }
     };
 
@@ -245,6 +245,7 @@ export default function AiAgentInterview() {
         if (!screenShareDetected) {
           screenShareDetected = true;
           logActivity('SCREEN_SHARE_ATTEMPT', 'Candidate attempted to share screen');
+          uploadEvidence('SCREEN_SHARE_ATTEMPT');
         }
         return origGetDisplayMedia.apply(this, args);
       };
@@ -309,7 +310,7 @@ export default function AiAgentInterview() {
       if (micStream) micStream.getTracks().forEach(t => t.stop());
       if (audioCtx && audioCtx.state !== 'closed') audioCtx.close();
     };
-  }, [interviewId, isMonitor, phase, logActivity]);
+  }, [interviewId, isMonitor, phase, logActivity, uploadEvidence]);
 
   const stopMic = useCallback(() => {
     if (recognitionRef.current) {

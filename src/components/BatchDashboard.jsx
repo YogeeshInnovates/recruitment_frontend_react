@@ -1,7 +1,7 @@
 import { useState, useEffect, useContext, useCallback } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { OrgContext } from '../context/OrgContext';
-import api from '../api/api';
+import api, { BASE_URL as API_URL } from '../api/api';
 
 function saveBlob(blob, filename) {
   const url = URL.createObjectURL(blob);
@@ -10,17 +10,37 @@ function saveBlob(blob, filename) {
   a.download = filename;
   document.body.appendChild(a);
   a.click();
-  document.body.removeChild(a);
-  URL.revokeObjectURL(url);
+  setTimeout(() => {
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  }, 100);
+}
+
+async function downloadCsvOrText(path, filename, isCsv) {
+  const res = await fetch(path, { headers: (() => { try { const u = JSON.parse(localStorage.getItem('recruit_user') || 'null'); return u?.token ? { Authorization: `Bearer ${u.token}` } : {}; } catch { return {}; } })() });
+  if (!res.ok) throw new Error(`Download failed: ${res.status}`);
+  let text = await res.text();
+  if (isCsv && text && !text.startsWith('\uFEFF')) {
+    text = '\uFEFF' + text;
+  }
+  const blob = new Blob([text], { type: isCsv ? 'text/csv;charset=utf-8' : 'text/plain;charset=utf-8' });
+  saveBlob(blob, filename);
 }
 
 function computeStatus(row, now) {
   if (row.status === 'COMPLETED') return 'over';
-  if (row.status === 'IN_PROGRESS') return 'processing';
+  if (row.status === 'IN_PROGRESS') {
+    if (row.scheduledAt) {
+      const sched = new Date(row.scheduledAt);
+      const elapsed = (now.getTime() - sched.getTime()) / 60000;
+      if (elapsed > 45) return 'technical';
+    }
+    return 'processing';
+  }
   if (row.scheduledAt) {
     const sched = new Date(row.scheduledAt);
     const diffMin = (sched.getTime() - now.getTime()) / 60000;
-    if (diffMin <= 10) return 'due';
+    if (diffMin <= 0 && diffMin > -30) return 'due';
   }
   return 'scheduled';
 }
@@ -39,8 +59,8 @@ function MultiLiveGrid({ rows, now }) {
             api.get(`/api/interview/${r.interviewId}/snapshot`),
             api.get(`/api/interview/${r.interviewId}/activity/summary`),
           ]);
-          setSnapshots(prev => ({ ...prev, [r.interviewId]: snapRes.data?.[0] || null }));
-          setActivityCounts(prev => ({ ...prev, [r.interviewId]: actRes.data?.counts || {} }));
+          setSnapshots(prev => ({ ...prev, [r.interviewId]: Array.isArray(snapRes) ? snapRes[0] || null : snapRes?.imageUrl ? snapRes : null }));
+          setActivityCounts(prev => ({ ...prev, [r.interviewId]: actRes?.counts || {} }));
         } catch (e) {
           setErrors(prev => ({ ...prev, [r.interviewId]: e.message }));
         }
@@ -59,7 +79,8 @@ function MultiLiveGrid({ rows, now }) {
       {rows.map(r => {
         const snap = snapshots[r.interviewId];
         const counts = activityCounts[r.interviewId] || {};
-        const totalFlags = Object.values(counts).reduce((s, v) => s + v, 0);
+        const suspiciousKeys = ['TAB_SWITCH', 'PAGE_BLUR', 'PASTE_BLOCKED', 'COPY_BLOCKED', 'CUT_BLOCKED', 'SHORTCUT_BLOCKED', 'RIGHT_CLICK', 'SCREEN_SHARE_ATTEMPT', 'SECOND_VOICE', 'MULTI_FACE'];
+        const totalFlags = suspiciousKeys.reduce((s, k) => s + (counts[k] || 0), 0);
         const hasFlags = totalFlags > 0;
         return (
           <div key={r.interviewId} style={{
@@ -192,9 +213,9 @@ export default function BatchDashboard() {
 
   const download = async (interviewId, type) => {
     try {
-      const blob = await api.download(`/api/interview/${interviewId}/report/${type}`);
-      const ext = type === 'score' ? 'csv' : type === 'activity' ? 'csv' : 'txt';
-      saveBlob(blob, `interview-${interviewId}-${type}.${ext}`);
+      const ext = type === 'score' || type === 'activity' ? 'csv' : 'txt';
+      const filename = `interview-${interviewId}-${type}.${ext}`;
+      await downloadCsvOrText(`${API_URL}/api/interview/${interviewId}/report/${type}`, filename, ext === 'csv');
     } catch (err) {
       setError(err.message || 'Download failed');
     }
@@ -205,6 +226,7 @@ export default function BatchDashboard() {
     due: rows.filter(r => computeStatus(r, now) === 'due').length,
     processing: rows.filter(r => computeStatus(r, now) === 'processing').length,
     over: rows.filter(r => computeStatus(r, now) === 'over').length,
+    technical: rows.filter(r => computeStatus(r, now) === 'technical').length,
   };
 
   return (
@@ -223,6 +245,9 @@ export default function BatchDashboard() {
           <div className="bd-stat bd-stat-red"><span className="bd-stat-num">{stats.due}</span><span>Due Now</span></div>
           <div className="bd-stat bd-stat-orange"><span className="bd-stat-num">{stats.processing}</span><span>Processing</span></div>
           <div className="bd-stat bd-stat-green"><span className="bd-stat-num">{stats.over}</span><span>Completed</span></div>
+          {stats.technical > 0 && (
+            <div className="bd-stat bd-stat-red"><span className="bd-stat-num">{stats.technical}</span><span>Technical Issue</span></div>
+          )}
           {(stats.due + stats.processing) > 0 && (
             <div className="bd-stat" style={{ cursor: 'pointer' }} onClick={() => setMultiLive(true)}>
               <span className="bd-stat-num" style={{ color: '#ef4444' }}>👁</span>
@@ -273,8 +298,9 @@ export default function BatchDashboard() {
                           {st === 'over' && <span className="bd-dot-green" />}
                           {st === 'processing' && <span className="bd-dot-orange" />}
                           {st === 'due' && <span className="bd-dot-red twinkle" />}
+                          {st === 'technical' && <span className="bd-dot-red" />}
                           {st === 'scheduled' && <span className="bd-dot-gray" />}
-                          {st === 'due' ? 'Due Now' : st === 'processing' ? 'Processing' : st === 'over' ? 'Over' : 'Upcoming'}
+                          {st === 'due' ? 'Due Now' : st === 'processing' ? 'Processing' : st === 'over' ? 'Over' : st === 'technical' ? 'Technical Issue' : 'Upcoming'}
                         </span>
                       </td>
                       <td>
@@ -302,6 +328,11 @@ export default function BatchDashboard() {
                             <a className="bd-btn bd-join" href={`/interview/${r.interviewId}?monitor=1`} target="_blank" rel="noreferrer">
                               👁 Join Monitor
                             </a>
+                          </div>
+                        ) : st === 'technical' ? (
+                          <div className="bd-actions">
+                            <button className="bd-btn" onClick={() => openReport(r.interviewId, r.name)}>📋 Report</button>
+                            <span className="bd-mail" style={{ color: '#ef4444' }}>⚠ Interview interrupted</span>
                           </div>
                         ) : (
                           <span className="bd-mail">Scheduled — link auto-emailed</span>
@@ -350,6 +381,14 @@ export default function BatchDashboard() {
               <p style={{ color: '#94a3b8', fontSize: 14 }}>No report data available yet.</p>
             ) : (
               <>
+                {(() => {
+                  const c = reportData.counts || {};
+                  const suspiciousKeys = ['TAB_SWITCH', 'PAGE_BLUR', 'PASTE_BLOCKED', 'COPY_BLOCKED', 'CUT_BLOCKED', 'SHORTCUT_BLOCKED', 'RIGHT_CLICK', 'SCREEN_SHARE_ATTEMPT', 'SECOND_VOICE', 'MULTI_FACE', 'HEAD_TURN_LEFT', 'HEAD_TURN_RIGHT', 'LOOK_DOWN', 'GAZE_OFF', 'NO_BLINK'];
+                  const suspiciousCount = suspiciousKeys.reduce((sum, k) => sum + (c[k] || 0), 0);
+                  const cameraIssues = (c.FACE_LOST || 0) + (c.CAMERA_FROZEN || 0);
+                  const isSusp = suspiciousCount >= 5;
+                return (
+                <>
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 8, marginBottom: 14 }}>
                   {[
                     ['Turned Left', reportData.counts?.HEAD_TURN_LEFT || 0, '#f59e0b'],
@@ -357,9 +396,7 @@ export default function BatchDashboard() {
                     ['Looked Down', reportData.counts?.LOOK_DOWN || 0, '#f59e0b'],
                     ['Gaze Off Screen', reportData.counts?.GAZE_OFF || 0, '#f59e0b'],
                     ['Eyes Closed', reportData.counts?.NO_BLINK || 0, '#ef4444'],
-                    ['Face Lost', reportData.counts?.FACE_LOST || 0, '#ef4444'],
                     ['2+ Faces', reportData.counts?.MULTI_FACE || 0, '#ef4444'],
-                    ['Laughs', reportData.counts?.LAUGHING || 0, '#22c55e'],
                     ['Tab Switches', reportData.counts?.TAB_SWITCH || 0, '#ef4444'],
                     ['Page Blurs', reportData.counts?.PAGE_BLUR || 0, '#ef4444'],
                     ['Paste Attempts', (reportData.counts?.PASTE_BLOCKED || 0) + (reportData.counts?.COPY_BLOCKED || 0) + (reportData.counts?.CUT_BLOCKED || 0), '#ef4444'],
@@ -367,7 +404,8 @@ export default function BatchDashboard() {
                     ['Right-Clicks', reportData.counts?.RIGHT_CLICK || 0, '#f59e0b'],
                     ['Screen Share', reportData.counts?.SCREEN_SHARE_ATTEMPT || 0, '#ef4444'],
                     ['2nd Voice', reportData.counts?.SECOND_VOICE || 0, '#ef4444'],
-                    ['Total Flags', reportData.totalFlags || 0, '#3b82f6'],
+                    ['Suspicious Flags', suspiciousCount, '#3b82f6'],
+                    ['Camera Issues', cameraIssues, '#64748b'],
                   ].map(([label, val, color]) => (
                     <div key={label} style={{ background: '#0f172a', borderRadius: 10, padding: '10px 8px', textAlign: 'center' }}>
                       <div style={{ fontSize: 22, fontWeight: 700, color }}>{val}</div>
@@ -378,12 +416,15 @@ export default function BatchDashboard() {
 
                 <div style={{
                   fontSize: 13, fontWeight: 700, padding: '8px 14px', borderRadius: 8, marginBottom: 14, textAlign: 'center',
-                  background: (reportData.totalFlags || 0) >= 5 ? 'rgba(220,38,38,0.18)' : 'rgba(34,197,94,0.15)',
-                  color: (reportData.totalFlags || 0) >= 5 ? '#fca5a5' : '#86efac',
-                  border: (reportData.totalFlags || 0) >= 5 ? '1px solid #ef4444' : '1px solid #22c55e',
+                  background: isSusp ? 'rgba(220,38,38,0.18)' : 'rgba(34,197,94,0.15)',
+                  color: isSusp ? '#fca5a5' : '#86efac',
+                  border: isSusp ? '1px solid #ef4444' : '1px solid #22c55e',
                 }}>
-                  {(reportData.totalFlags || 0) >= 5 ? '⚠ SUSPICIOUS' : '✓ CLEAN'}
+                  {isSusp ? `⚠ SUSPICIOUS (${suspiciousCount} flags)` : `✓ CLEAN (${suspiciousCount} flags)`}
                 </div>
+                </>
+                );
+                })()}
 
                 <div style={{ fontSize: 11, color: '#64748b', lineHeight: 1.6, marginBottom: 14, padding: '8px 12px', background: '#0f172a', borderRadius: 8 }}>
                   Smart 3D monitor (on-device, matrix head pose + iris gaze) · Head turn: safe ±20° / suspicious ±35° ·
