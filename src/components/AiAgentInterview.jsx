@@ -417,7 +417,7 @@ export default function AiAgentInterview() {
       setShowTextInput(false);
       setCountdown(null);
       if (idleTimerRef.current) clearTimeout(idleTimerRef.current);
-      idleTimerRef.current = setTimeout(idleTimerCallback, 7000);
+      idleTimerRef.current = setTimeout(idleTimerCallback, 12000);
     } catch (e) {
       console.log('Mic start error:', e);
     }
@@ -581,7 +581,7 @@ export default function AiAgentInterview() {
       if ((newFinal || interimTranscript) && idleTimerRef.current) {
         clearTimeout(idleTimerRef.current);
         setCountdown(null);
-        idleTimerRef.current = setTimeout(idleTimerCallback, 7000);
+        idleTimerRef.current = setTimeout(idleTimerCallback, 12000);
       }
 
       const displayText = accumulatedTranscriptRef.current.trim() || interimTranscript;
