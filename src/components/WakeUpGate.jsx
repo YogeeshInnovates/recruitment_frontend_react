@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { BASE_URL } from '../api/api';
 
+const AI_URL = import.meta.env.VITE_AI_URL || 'https://interview-agent-service.onrender.com';
 const ATTEMPT_TIMEOUT_MS = 60000;
 const RETRY_DELAY_MS = 3000;
 
@@ -36,19 +37,20 @@ export default function WakeUpGate({ children }) {
 
     async function run() {
       while (!cancelled) {
-        const data = await pingWithTimeout(`${BASE_URL}/api/warmup`, ATTEMPT_TIMEOUT_MS);
+        const [springData, fastData] = await Promise.all([
+          pingWithTimeout(`${BASE_URL}/api/warmup`, ATTEMPT_TIMEOUT_MS),
+          pingWithTimeout(`${AI_URL}/health`, ATTEMPT_TIMEOUT_MS),
+        ]);
 
-        if (!cancelled && data) {
-          setSpringUp(true);
-          setFastapiUp(data.fastapi === true);
+        if (!cancelled) {
+          if (springData) setSpringUp(true); else setSpringUp(false);
+          const fastOk = fastData === true || fastData?.status === 'healthy';
+          if (fastOk || (springData?.fastapi === true)) { setFastapiUp(true); } else { setFastapiUp(false); }
 
-          if (data.fastapi) {
+          if ((springData?.fastapi === true) || (fastOk && springData)) {
             setPhase('ready');
             return;
           }
-        } else if (!cancelled) {
-          setSpringUp(false);
-          setFastapiUp(false);
         }
 
         if (cancelled) return;
