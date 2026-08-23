@@ -1,7 +1,7 @@
 import { useState, useEffect, useContext, useCallback } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { OrgContext } from '../context/OrgContext';
-import api, { BASE_URL as API_URL } from '../api/api';
+import api from '../api/api';
 
 function saveBlob(blob, filename) {
   const url = URL.createObjectURL(blob);
@@ -14,17 +14,6 @@ function saveBlob(blob, filename) {
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
   }, 100);
-}
-
-async function downloadCsvOrText(path, filename, isCsv) {
-  const res = await fetch(path, { headers: (() => { try { const u = JSON.parse(localStorage.getItem('recruit_user') || 'null'); return u?.token ? { Authorization: `Bearer ${u.token}` } : {}; } catch { return {}; } })() });
-  if (!res.ok) throw new Error(`Download failed: ${res.status}`);
-  let text = await res.text();
-  if (isCsv && text && !text.startsWith('\uFEFF')) {
-    text = '\uFEFF' + text;
-  }
-  const blob = new Blob([text], { type: isCsv ? 'text/csv;charset=utf-8' : 'text/plain;charset=utf-8' });
-  saveBlob(blob, filename);
 }
 
 function computeStatus(row, now) {
@@ -213,9 +202,10 @@ export default function BatchDashboard() {
 
   const download = async (interviewId, type) => {
     try {
-      const ext = type === 'score' || type === 'activity' ? 'csv' : 'txt';
+      const ext = type === 'score' || type === 'activity' ? 'xlsx' : 'txt';
       const filename = `interview-${interviewId}-${type}.${ext}`;
-      await downloadCsvOrText(`${API_URL}/api/interview/${interviewId}/report/${type}`, filename, ext === 'csv');
+      const blob = await api.download(`/api/interview/${interviewId}/report/${type}`);
+      saveBlob(blob, filename);
     } catch (err) {
       setError(err.message || 'Download failed');
     }
