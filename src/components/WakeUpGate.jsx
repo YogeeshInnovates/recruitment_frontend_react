@@ -26,8 +26,11 @@ export default function WakeUpGate({ children }) {
         try {
           const res = await fetch(`${BASE_URL}/api/warmup`, { signal: controller.signal });
           if (res.ok) {
-            if (!cancelled) setPhase('ready');
-            return;
+            const data = await res.json();
+            if (data.fastapi) {
+              if (!cancelled) setPhase('ready');
+              return;
+            }
           }
         } catch {
           // Network error or timeout while the free-tier server was sleeping.
