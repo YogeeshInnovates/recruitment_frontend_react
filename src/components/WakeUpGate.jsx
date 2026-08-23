@@ -1,14 +1,29 @@
 import { useEffect, useState } from 'react';
 import { BASE_URL } from '../api/api';
 
-const SLOW_THRESHOLD_SECONDS = 5;
+const FASTAPI_URL = 'https://interview-agent-service.onrender.com';
 const ATTEMPT_TIMEOUT_MS = 60000;
-const RETRY_DELAY_MS = 4000;
+const RETRY_DELAY_MS = 3000;
+
+async function pingWithTimeout(url, timeoutMs) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const res = await fetch(url, { signal: controller.signal });
+    clearTimeout(timer);
+    return res.ok;
+  } catch {
+    clearTimeout(timer);
+    return false;
+  }
+}
 
 export default function WakeUpGate({ children }) {
   const [phase, setPhase] = useState('warming');
   const [elapsed, setElapsed] = useState(0);
   const [attempt, setAttempt] = useState(0);
+  const [springUp, setSpringUp] = useState(false);
+  const [fastapiUp, setFastapiUp] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -20,23 +35,19 @@ export default function WakeUpGate({ children }) {
 
     async function run() {
       while (!cancelled) {
-        const controller = new AbortController();
-        const abortTimer = setTimeout(() => controller.abort(), ATTEMPT_TIMEOUT_MS);
+        const [springOk, fastapiOk] = await Promise.all([
+          pingWithTimeout(`${BASE_URL}/api/warmup`, ATTEMPT_TIMEOUT_MS),
+          pingWithTimeout(`${FASTAPI_URL}/health`, ATTEMPT_TIMEOUT_MS),
+        ]);
 
-        try {
-          const res = await fetch(`${BASE_URL}/api/warmup`, { signal: controller.signal });
-          if (res.ok) {
-            const data = await res.json();
-            if (data.fastapi) {
-              if (!cancelled) setPhase('ready');
-              return;
-            }
-          }
-        } catch {
-          // Network error or timeout while the free-tier server was sleeping.
-          // It's not a real failure — just retry automatically.
-        } finally {
-          clearTimeout(abortTimer);
+        if (!cancelled) {
+          setSpringUp(springOk);
+          setFastapiUp(fastapiOk);
+        }
+
+        if (springOk && fastapiOk) {
+          if (!cancelled) setPhase('ready');
+          return;
         }
 
         if (cancelled) return;
@@ -57,7 +68,7 @@ export default function WakeUpGate({ children }) {
     return children;
   }
 
-  const showPopup = elapsed > SLOW_THRESHOLD_SECONDS;
+  const showPopup = elapsed > 5;
 
   return (
     <div style={{
@@ -79,11 +90,19 @@ export default function WakeUpGate({ children }) {
             Our platform runs on a free hosting tier, so after about <b>15 minutes</b> of inactivity
             the servers go to sleep. It may take up to <b>~50 seconds</b> to wake them up.
           </p>
+          <div style={{ display: 'flex', justifyContent: 'center', gap: 24, marginTop: 16 }}>
+            <span style={{ color: springUp ? '#22c55e' : '#f59e0b', fontSize: 13 }}>
+              {springUp ? '✓' : '○'} Backend
+            </span>
+            <span style={{ color: fastapiUp ? '#22c55e' : '#f59e0b', fontSize: 13 }}>
+              {fastapiUp ? '✓' : '○'} AI Service
+            </span>
+          </div>
           <p style={{ color: '#f59e0b', fontSize: 14, fontWeight: 600, marginTop: 12 }}>
             Please wait — this is not an error.
           </p>
           <p style={{ color: '#94a3b8', fontSize: 13, marginTop: 8 }}>
-            Sorry for the wasted time. Waking up... ({elapsed}s){attempt > 0 ? ` · retry ${attempt}` : ''}
+            Waking up... ({elapsed}s){attempt > 0 ? ` · retry ${attempt}` : ''}
           </p>
         </div>
       ) : (
