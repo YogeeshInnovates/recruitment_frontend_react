@@ -26,13 +26,13 @@ export default function Dashboard() {
       <div className="rd-hero">
         <h2 className="rd-hero-title">What would you like to do today?</h2>
         <div className="rd-hero-cards">
-          <Link to="/candidates" className="rd-card">
+          <Link to="/screening" className="rd-card">
             <div className="rd-card-glow" />
             <div className="rd-card-icon-wrap" style={{ background: 'linear-gradient(135deg, #2563eb, #3b82f6)' }}>
               <span className="rd-card-icon">📄</span>
             </div>
             <h3 className="rd-card-title">Resume Screening</h3>
-            <p className="rd-card-desc">Upload resumes, extract skills, and match candidates to job openings</p>
+            <p className="rd-card-desc">Upload up to 10 resumes, AI scores & ranks them, then pick the best for interviews</p>
             <span className="rd-card-action">Get Started →</span>
           </Link>
           <Link to="/interview/batch" className="rd-card">

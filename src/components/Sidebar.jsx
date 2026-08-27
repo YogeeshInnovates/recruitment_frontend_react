@@ -7,6 +7,8 @@ export default function Sidebar() {
 
   const links = [
     { to: '/dashboard', icon: '📊', label: 'Dashboard' },
+    { to: '/screening', icon: '📄', label: 'Resume Screening' },
+    { to: '/candidates', icon: '👤', label: 'Candidates' },
     { to: '/interview/setup/demo', icon: '🎤', label: 'Mock Interview' },
     { to: '/team', icon: '👥', label: 'Add Recruiter' },
   ];

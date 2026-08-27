@@ -27,6 +27,7 @@ import OrganizationSetup from './components/OrganizationSetup';
 import TeamPage from './components/TeamPage';
 import AIBatchSetup from './components/AIBatchSetup';
 import BatchDashboard from './components/BatchDashboard';
+import ResumeScreening from './components/ResumeScreening';
 import SystemCheck from './components/SystemCheck';
 
 function RequireAuth({ children }) {
@@ -81,6 +82,7 @@ function AppRoutes() {
         <Route path="/interview/batch" element={<AIBatchSetup />} />
         <Route path="/interview/batch/dashboard" element={<BatchDashboard />} />
         <Route path="/interview/batch/dashboard/:jobId" element={<BatchDashboard />} />
+        <Route path="/screening" element={<ResumeScreening />} />
       </Route>
     </Routes>
   );
