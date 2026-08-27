@@ -123,20 +123,6 @@ export default function ResumeScreening() {
     return n >= 75 ? 'high' : n >= 50 ? 'mid' : 'low';
   };
 
-  const formatSlots = (schedule) => {
-    if (!schedule || !schedule.length) return '—';
-    const s = schedule[0];
-    if (!s.start_at) return s.date_time || '—';
-    try {
-      return new Date(s.start_at).toLocaleString(undefined, {
-        weekday: 'short', month: 'short', day: 'numeric',
-        hour: 'numeric', minute: '2-digit'
-      });
-    } catch {
-      return s.start_at;
-    }
-  };
-
   const skillList = (arr) => {
     if (!arr || !arr.length) return '—';
     return Array.isArray(arr) ? arr.join(', ') : String(arr);
@@ -234,10 +220,9 @@ export default function ResumeScreening() {
             <div className="abs-schedule-preview">
               <p className="abs-field-label">🗓️ Proposed Interview Schedule</p>
               <p className="abs-schedule-hint">
-                {schedule.length} slot{schedule.length !== 1 ? 's' : ''}, starting{' '}
-                <strong>{formatSlots(schedule)}</strong> (Asia/Kolkata, 5 minute gap between candidates).
-                <br />
-                Interviews will be scheduled only after you confirm below.
+                {schedule.length} slot{schedule.length !== 1 ? 's' : ''}, first one starts{' '}
+                <strong>~8 minutes after you confirm</strong> — each next candidate starts only
+                after the previous one's allotted time, one by one.
               </p>
             </div>
           )}
