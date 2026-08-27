@@ -61,15 +61,9 @@ export default function WakeUpGate({ children }) {
 
     run();
 
-    const keepAlive = setInterval(() => {
-      pingWithTimeout(`${BASE_URL}/api/warmup`, 20000).catch(() => {});
-      pingWithTimeout(`${AI_URL}/health`, 20000).catch(() => {});
-    }, 600000);
-
     return () => {
       cancelled = true;
       clearInterval(interval);
-      clearInterval(keepAlive);
     };
   }, []);
 

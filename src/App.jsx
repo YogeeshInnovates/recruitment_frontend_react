@@ -4,6 +4,7 @@ import { AuthProvider, AuthContext } from './context/AuthContext';
 import { OrgContext, OrgProvider } from './context/OrgContext';
 export { OrgContext };
 import WakeUpGate from './components/WakeUpGate';
+import KeepAliveGate from './components/KeepAliveGate';
 import Layout from './components/Layout';
 import HomePage from './components/HomePage';
 import LoginPage from './components/LoginPage';
@@ -94,6 +95,7 @@ function App() {
       <WakeUpGate>
         <AuthProvider>
           <OrgProvider>
+            <KeepAliveGate />
             <AppRoutes />
           </OrgProvider>
         </AuthProvider>
