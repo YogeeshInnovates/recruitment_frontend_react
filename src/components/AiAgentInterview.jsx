@@ -404,12 +404,14 @@ export default function AiAgentInterview() {
     }
   }, []);
 
-  const startMic = useCallback(() => {
+  const startMic = useCallback((clearTranscript = true) => {
     if (!recognitionRef.current || isProcessingRef.current) return;
-    setCandidateSpeech('');
-    setShowSubtitle('');
-    lastSpeechRef.current = '';
-    accumulatedTranscriptRef.current = '';
+    if (clearTranscript) {
+      setCandidateSpeech('');
+      setShowSubtitle('');
+      lastSpeechRef.current = '';
+      accumulatedTranscriptRef.current = '';
+    }
     try {
       recognitionRef.current.start();
       setIsListening(true);
@@ -594,7 +596,7 @@ export default function AiAgentInterview() {
       console.log('Speech recognition error:', event.error);
       if (event.error === 'aborted') {
         if (!isProcessingRef.current && phaseRef.current === 'active') {
-          setTimeout(() => startMic(), 500);
+          setTimeout(() => startMic(false), 500);
         }
       } else if (event.error === 'no-speech') {
         speechFailCountRef.current += 1;
@@ -613,7 +615,7 @@ export default function AiAgentInterview() {
     recognition.onend = () => {
       if (phaseRef.current === 'active' && !isProcessingRef.current) {
         setTimeout(() => {
-          if (phaseRef.current === 'active' && !isProcessingRef.current) startMic();
+          if (phaseRef.current === 'active' && !isProcessingRef.current) startMic(false);
         }, 300);
       }
     };
