@@ -29,6 +29,7 @@ export default function InterviewLauncher() {
     const formData = new FormData();
     formData.append('jobDescription', jobDescription);
     formData.append('resume', resumeFile);
+    formData.append('mock', 'true');
 
     try {
       const BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8080';
@@ -43,6 +44,10 @@ export default function InterviewLauncher() {
       }
 
       const data = await res.json();
+      if (data?.interviewId) {
+        navigate(`/interview/${data.interviewId}?mock=1`);
+        return;
+      }
       setResult(data);
     } catch (err) {
       setError(err.message);

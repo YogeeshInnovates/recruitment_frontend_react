@@ -56,6 +56,7 @@ export default function AiAgentInterview() {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const isMonitor = searchParams.get('monitor') === '1';
+  const isMock = searchParams.get('mock') === '1';
 
   const [phase, setPhase] = useState('loading');
   const [messages, setMessages] = useState([]);
@@ -90,6 +91,8 @@ export default function AiAgentInterview() {
   const [showTextInput, setShowTextInput] = useState(false);
   const [typedAnswer, setTypedAnswer] = useState('');
   const [micLevel, setMicLevel] = useState(0);
+  const [mockScore, setMockScore] = useState(null);
+  const [mockRecommendation, setMockRecommendation] = useState('');
 
   const messagesEndRef = useRef(null);
   const recognitionRef = useRef(null);
@@ -426,6 +429,25 @@ export default function AiAgentInterview() {
     }
   }, []);
 
+  const finishInterview = useCallback(async () => {
+    if (!isMock) {
+      try { await fetch(`${API_URL}/api/interview/${interviewId}/end`, { method: 'POST', headers: { ...authHeaders() } }); } catch (e) {}
+      return;
+    }
+    try {
+      const res = await fetch(`${API_URL}/api/interview/${interviewId}/end?mock=1`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...authHeaders() },
+        body: JSON.stringify({ messages: conversationHistoryRef.current || [] }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (data && typeof data.score === 'number') {
+        setMockScore(data.score);
+        setMockRecommendation(data.recommendation || '');
+      }
+    } catch (e) {}
+  }, [interviewId, isMock]);
+
   const sendToAI = useCallback(async (userMessage) => {
     if (isProcessingRef.current) return;
     isProcessingRef.current = true;
@@ -443,7 +465,7 @@ export default function AiAgentInterview() {
       setShowSubtitle('');
       setPhase('complete');
       phaseRef.current = 'complete';
-      try { await fetch(`${API_URL}/api/interview/${interviewId}/end`, { method: 'POST', headers: { ...authHeaders() } }); } catch (e) {}
+      await finishInterview();
       return;
     }
 
@@ -454,7 +476,10 @@ export default function AiAgentInterview() {
     setMessages(prev => [...prev, { role: 'candidate', content: userMessage }]);
 
     try {
-      const res = await fetch(`${API_URL}/api/interview/${interviewId}/chat`, {
+      const chatUrl = isMock
+        ? `${API_URL}/api/interview/${interviewId}/chat?mock=1`
+        : `${API_URL}/api/interview/${interviewId}/chat`;
+      const res = await fetch(chatUrl, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', ...authHeaders() },
         body: JSON.stringify({
@@ -489,9 +514,7 @@ export default function AiAgentInterview() {
             aiReply.toLowerCase().includes("get back to you")) {
           setPhase('complete');
           phaseRef.current = 'complete';
-          try {
-            await fetch(`${API_URL}/api/interview/${interviewId}/end`, { method: 'POST', headers: { ...authHeaders() } });
-          } catch (e) {}
+          await finishInterview();
           return;
         }
 
@@ -514,7 +537,7 @@ export default function AiAgentInterview() {
     } finally {
       isProcessingRef.current = false;
     }
-  }, [interviewId, stopMic, startMic]);
+  }, [interviewId, stopMic, startMic, finishInterview]);
 
   sendToAIRef.current = sendToAI;
 
@@ -679,7 +702,7 @@ export default function AiAgentInterview() {
     if (phase === 'active' && elapsedSeconds >= 1800) {
       setPhase('complete');
       phaseRef.current = 'complete';
-      fetch(`${API_URL}/api/interview/${interviewId}/end`, { method: 'POST', headers: { ...authHeaders() } }).catch(() => {});
+      finishInterview();
     }
   }, [phase, elapsedSeconds, interviewId]);
 
@@ -1409,9 +1432,20 @@ export default function AiAgentInterview() {
           }}>
             <div style={{ fontSize: 64, marginBottom: 16 }}>✓</div>
             <h2 style={{ marginBottom: 8 }}>Interview Complete</h2>
-            <p style={{ color: '#94a3b8', marginBottom: 20 }}>
-              Thank you for your time! We will get back to you soon.
-            </p>
+            {isMock && mockScore !== null ? (
+              <>
+                <div style={{ fontSize: 64, fontWeight: 800, color: '#10b981', margin: '8px 0' }}>
+                  {mockScore}<span style={{ fontSize: 24, color: '#94a3b8' }}>/100</span>
+                </div>
+                <p style={{ color: '#94a3b8', marginBottom: 20, textAlign: 'center', maxWidth: 480 }}>
+                  {mockRecommendation || 'Great effort — keep practicing to improve your score.'}
+                </p>
+              </>
+            ) : (
+              <p style={{ color: '#94a3b8', marginBottom: 20 }}>
+                Thank you for your time! We will get back to you soon.
+              </p>
+            )}
             <button className="btn btn-primary" onClick={() => { releaseMedia(); navigate('/'); }}>Close & Exit</button>
           </div>
         )}
