@@ -419,8 +419,9 @@ export default function AiAgentInterview() {
       setMicBlocked(false);
       setShowTextInput(false);
       setCountdown(null);
-      if (idleTimerRef.current) clearTimeout(idleTimerRef.current);
-      idleTimerRef.current = setTimeout(idleTimerCallback, 12000);
+      if (!idleTimerRef.current) {
+        idleTimerRef.current = setTimeout(idleTimerCallback, 12000);
+      }
     } catch (e) {
       console.log('Mic start error:', e);
     }
@@ -600,9 +601,6 @@ export default function AiAgentInterview() {
         }
       } else if (event.error === 'no-speech') {
         speechFailCountRef.current += 1;
-        if (speechFailCountRef.current >= 2 && phaseRef.current === 'active') {
-          setMicBlocked(true);
-        }
       } else if (event.error === 'not-allowed' || event.error === 'audio-capture' || event.error === 'service-not-allowed') {
         speechFailCountRef.current += 1;
         if (phaseRef.current === 'active') {
