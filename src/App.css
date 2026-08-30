@@ -189,6 +189,24 @@
   cursor: pointer;
 }
 
+.navbar-profile {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+}
+
+.navbar-name {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text);
+  max-width: 140px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .page-content {
   padding: 32px;
   flex: 1;
