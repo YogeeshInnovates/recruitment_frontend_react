@@ -92,7 +92,14 @@ export default function AiAgentInterview() {
   const [micLevel, setMicLevel] = useState(0);
 
   const messagesEndRef = useRef(null);
-  const recognitionRef = useRef(null);
+  const mediaRecorderRef = useRef(null);
+  const mediaChunksRef = useRef([]);
+  const recorderStreamRef = useRef(null);
+  const recorderCtxRef = useRef(null);
+  const recorderAnalyserRef = useRef(null);
+  const vadTimerRef = useRef(null);
+  const discardRecordingRef = useRef(false);
+  const transcribingRef = useRef(false);
   const timerRef = useRef(null);
   const idleTimerRef = useRef(null);
   const conversationHistoryRef = useRef([]);
@@ -312,18 +319,92 @@ export default function AiAgentInterview() {
     };
   }, [interviewId, isMonitor, phase, logActivity, uploadEvidence]);
 
-  const stopMic = useCallback(() => {
-    if (recognitionRef.current) {
-      try { recognitionRef.current.stop(); } catch (e) {}
+  const cleanupRecorder = useCallback(() => {
+    if (vadTimerRef.current) {
+      clearInterval(vadTimerRef.current);
+      vadTimerRef.current = null;
     }
-    setIsListening(false);
-    setMicActive(false);
-    clearCountdown();
+    if (recorderCtxRef.current && recorderCtxRef.current.state !== 'closed') {
+      try { recorderCtxRef.current.close(); } catch (e) {}
+    }
+    recorderCtxRef.current = null;
+    recorderAnalyserRef.current = null;
+    const stream = recorderStreamRef.current;
+    if (stream) {
+      stream.getTracks().forEach(t => { try { t.stop(); } catch (e) {} });
+    }
+    recorderStreamRef.current = null;
+    mediaRecorderRef.current = null;
     if (idleTimerRef.current) {
       clearTimeout(idleTimerRef.current);
       idleTimerRef.current = null;
     }
   }, []);
+
+  const handleRecordedBlob = useCallback(async (blob) => {
+    if (transcribingRef.current) return;
+    transcribingRef.current = true;
+    setMicActive(false);
+    setIsListening(false);
+    try {
+      let text = '';
+      if (blob && blob.size > 0) {
+        const fd = new FormData();
+        fd.append('file', blob, 'answer.webm');
+        const res = await fetch(`${API_URL}/api/interview/transcribe`, {
+          method: 'POST',
+          headers: authHeaders(),
+          body: fd,
+        });
+        if (res.ok) {
+          const data = await res.json();
+          text = (data.text || '').trim();
+        }
+      }
+      transcribingRef.current = false;
+      if (text) {
+        noSpeechCountRef.current = 0;
+        consecutiveSilenceRef.current = 0;
+        speechFailCountRef.current = 0;
+        accumulatedTranscriptRef.current = '';
+        lastSpeechRef.current = '';
+        setCandidateSpeech(text);
+        setShowSubtitle(text);
+        if (sendToAIRef.current) sendToAIRef.current(text);
+        return;
+      }
+      consecutiveSilenceRef.current += 1;
+      speechFailCountRef.current += 1;
+      if (phaseRef.current !== 'active' || !sendToAIRef.current) return;
+      if (consecutiveSilenceRef.current >= 3) {
+        sendToAIRef.current('No answer received, end the interview');
+      } else if (consecutiveSilenceRef.current >= 2) {
+        setMicBlocked(true);
+        setShowTextInput(true);
+        sendToAIRef.current('No answer received, let me ask something else');
+      } else {
+        sendToAIRef.current('No answer received, ask me to repeat');
+      }
+    } catch (err) {
+      transcribingRef.current = false;
+      if (phaseRef.current === 'active' && sendToAIRef.current) {
+        consecutiveSilenceRef.current += 1;
+        sendToAIRef.current('No answer received, ask me to repeat');
+      }
+    }
+  }, []);
+
+  const stopMic = useCallback(() => {
+    if (mediaRecorderRef.current) {
+      discardRecordingRef.current = true;
+      try { mediaRecorderRef.current.stop(); } catch (e) {}
+    } else {
+      cleanupRecorder();
+    }
+    setIsListening(false);
+    setMicActive(false);
+    clearCountdown();
+  }, [cleanupRecorder]);
 
   const countdownCompleteRef = useRef(null);
 
@@ -373,58 +454,116 @@ export default function AiAgentInterview() {
     }, 5000);
   };
 
-  const idleTimerCallback = useCallback(() => {
+  const finalizeAndSubmit = useCallback(() => {
+    if (transcribingRef.current) return;
     clearCountdown();
-    if (phaseRef.current === 'active' && !isProcessingRef.current && sendToAIRef.current) {
-      const accumulated = accumulatedTranscriptRef.current.trim();
-      if (accumulated) {
-        accumulatedTranscriptRef.current = '';
-        setMicBlocked(false);
-        setShowTextInput(false);
-        sendToAIRef.current(accumulated);
-      } else if (lastSpeechRef.current.trim()) {
-        const speech = lastSpeechRef.current.trim();
-        lastSpeechRef.current = '';
-        setMicBlocked(false);
-        setShowTextInput(false);
-        sendToAIRef.current(speech);
-      } else {
-        consecutiveSilenceRef.current += 1;
-        speechFailCountRef.current += 1;
-        if (consecutiveSilenceRef.current >= 3) {
-          sendToAIRef.current("No answer received, end the interview");
-        } else if (consecutiveSilenceRef.current >= 2) {
-          setMicBlocked(true);
-          setShowTextInput(true);
-          sendToAIRef.current("No answer received, let me ask something else");
-        } else {
-          sendToAIRef.current("No answer received, ask me to repeat");
-        }
-      }
+    const rec = mediaRecorderRef.current;
+    if (rec && rec.state !== 'inactive') {
+      discardRecordingRef.current = false;
+      try { rec.stop(); } catch (e) { handleRecordedBlob(null); }
+    } else {
+      if (recorderStreamRef.current) cleanupRecorder();
+      handleRecordedBlob(null);
     }
-  }, []);
+  }, [handleRecordedBlob, cleanupRecorder]);
+
+  const idleTimerCallback = useCallback(() => {
+    if (phaseRef.current === 'active' && !isProcessingRef.current) {
+      finalizeAndSubmit();
+    }
+  }, [finalizeAndSubmit]);
 
   const startMic = useCallback((clearTranscript = true) => {
-    if (!recognitionRef.current || isProcessingRef.current) return;
+    if (isProcessingRef.current || transcribingRef.current) return;
     if (clearTranscript) {
       setCandidateSpeech('');
       setShowSubtitle('');
       lastSpeechRef.current = '';
       accumulatedTranscriptRef.current = '';
     }
+    const begin = async () => {
+      try {
+        let stream;
+        try {
+          stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        } catch (err) {
+          speechFailCountRef.current += 1;
+          if (phaseRef.current === 'active') {
+            setMicBlocked(true);
+            setShowTextInput(true);
+          }
+          return;
+        }
+        const mimeType = ['audio/webm;codecs=opus', 'audio/webm', 'audio/mp4']
+          .find((t) => window.MediaRecorder && window.MediaRecorder.isTypeSupported && window.MediaRecorder.isTypeSupported(t));
+        const rec = new MediaRecorder(stream, mimeType ? { mimeType, audioBitsPerSecond: 64000 } : {});
+        mediaRecorderRef.current = rec;
+        recorderStreamRef.current = stream;
+        mediaChunksRef.current = [];
+        discardRecordingRef.current = false;
+        rec.ondataavailable = (e) => { if (e.data && e.data.size > 0) mediaChunksRef.current.push(e.data); };
+        rec.onstop = () => {
+          const blob = mediaChunksRef.current.length
+            ? new Blob(mediaChunksRef.current, { type: rec.mimeType || 'audio/webm' })
+            : null;
+          mediaChunksRef.current = [];
+          cleanupRecorder();
+          if (discardRecordingRef.current) {
+            discardRecordingRef.current = false;
+            return;
+          }
+          handleRecordedBlob(blob);
+        };
+        rec.onerror = () => {
+          cleanupRecorder();
+          if (discardRecordingRef.current) {
+            discardRecordingRef.current = false;
+            return;
+          }
+          handleRecordedBlob(null);
+        };
+        rec.start();
+        setIsListening(true);
+        setMicActive(true);
+        setMicBlocked(false);
+        setShowTextInput(false);
+        setCountdown(null);
+        if (idleTimerRef.current) clearTimeout(idleTimerRef.current);
+        idleTimerRef.current = setTimeout(idleTimerCallback, 12000);
+        startVad(stream);
+      } catch (e) {
+        console.log('Mic start error:', e);
+      }
+    };
+    begin();
+  }, [handleRecordedBlob, idleTimerCallback, cleanupRecorder]);
+
+  const startVad = useCallback((stream) => {
     try {
-      recognitionRef.current.start();
-      setIsListening(true);
-      setMicActive(true);
-      setMicBlocked(false);
-      setShowTextInput(false);
-      setCountdown(null);
-      if (idleTimerRef.current) clearTimeout(idleTimerRef.current);
-      idleTimerRef.current = setTimeout(idleTimerCallback, 12000);
+      const ctx = new (window.AudioContext || window.webkitAudioContext)();
+      recorderCtxRef.current = ctx;
+      const source = ctx.createMediaStreamSource(stream);
+      const analyser = ctx.createAnalyser();
+      analyser.fftSize = 512;
+      analyser.smoothingTimeConstant = 0.5;
+      source.connect(analyser);
+      recorderAnalyserRef.current = analyser;
+      const data = new Uint8Array(analyser.frequencyBinCount);
+      if (vadTimerRef.current) clearInterval(vadTimerRef.current);
+      vadTimerRef.current = setInterval(() => {
+        if (phaseRef.current !== 'active' || isProcessingRef.current) return;
+        analyser.getByteFrequencyData(data);
+        let sum = 0;
+        for (let i = 0; i < data.length; i++) sum += data[i];
+        if ((sum / data.length) > 30) {
+          if (idleTimerRef.current) clearTimeout(idleTimerRef.current);
+          idleTimerRef.current = setTimeout(idleTimerCallback, 12000);
+        }
+      }, 400);
     } catch (e) {
-      console.log('Mic start error:', e);
+      recorderAnalyserRef.current = null;
     }
-  }, []);
+  }, [idleTimerCallback]);
 
   const sendToAI = useCallback(async (userMessage) => {
     if (isProcessingRef.current) return;
@@ -532,100 +671,9 @@ export default function AiAgentInterview() {
 
   useEffect(() => {
     if (isMonitor) return;
-    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-    if (!SpeechRecognition) {
-      setSpeechSupported(false);
-      return;
-    }
-    setSpeechSupported(true);
-
-    const recognition = new SpeechRecognition();
-    recognition.continuous = true;
-    recognition.interimResults = true;
-    recognition.lang = 'en-US';
-
-    recognition.onresult = (event) => {
-      let newFinal = '';
-      let interimTranscript = '';
-
-      for (let i = event.resultIndex; i < event.results.length; i++) {
-        const transcript = event.results[i][0].transcript;
-        if (event.results[i].isFinal) {
-          newFinal += transcript;
-        } else {
-          interimTranscript += transcript;
-        }
-      }
-
-      if (newFinal) {
-        accumulatedTranscriptRef.current += newFinal + ' ';
-        noSpeechCountRef.current = 0;
-        consecutiveSilenceRef.current = 0;
-        speechFailCountRef.current = 0;
-        lastSpeechRef.current = '';
-      } else if (interimTranscript) {
-        lastSpeechRef.current = interimTranscript;
-        consecutiveSilenceRef.current = 0;
-        speechFailCountRef.current = 0;
-      }
-
-      if (newFinal || interimTranscript) {
-        if (countdownDebounceRef.current) {
-          clearTimeout(countdownDebounceRef.current);
-          countdownDebounceRef.current = null;
-        }
-        setCountdown(null);
-        if (countdownIntervalRef.current) {
-          clearInterval(countdownIntervalRef.current);
-          countdownIntervalRef.current = null;
-        }
-      }
-
-      if ((newFinal || interimTranscript) && idleTimerRef.current) {
-        clearTimeout(idleTimerRef.current);
-        setCountdown(null);
-        idleTimerRef.current = setTimeout(idleTimerCallback, 12000);
-      }
-
-      const displayText = accumulatedTranscriptRef.current.trim() || interimTranscript;
-      setCandidateSpeech(displayText);
-      setShowSubtitle(displayText);
-    };
-
-    recognition.onerror = (event) => {
-      console.log('Speech recognition error:', event.error);
-      if (event.error === 'aborted') {
-        if (!isProcessingRef.current && phaseRef.current === 'active') {
-          setTimeout(() => startMic(false), 500);
-        }
-      } else if (event.error === 'no-speech') {
-        speechFailCountRef.current += 1;
-        if (speechFailCountRef.current >= 2 && phaseRef.current === 'active') {
-          setMicBlocked(true);
-        }
-      } else if (event.error === 'not-allowed' || event.error === 'audio-capture' || event.error === 'service-not-allowed') {
-        speechFailCountRef.current += 1;
-        if (phaseRef.current === 'active') {
-          setMicBlocked(true);
-          setShowTextInput(true);
-        }
-      }
-    };
-
-    recognition.onend = () => {
-      if (phaseRef.current === 'active' && !isProcessingRef.current) {
-        setTimeout(() => {
-          if (phaseRef.current === 'active' && !isProcessingRef.current) startMic(false);
-        }, 300);
-      }
-    };
-
-    recognitionRef.current = recognition;
-
-    return () => {
-      try { recognition.stop(); } catch (e) {}
-    };
-  }, [sendToAI, startMic, isMonitor]);
+    const supported = !!(navigator.mediaDevices?.getUserMedia && window.MediaRecorder);
+    setSpeechSupported(supported);
+  }, [isMonitor]);
 
   const beginInterview = useCallback(async (data) => {
     if (hasStartedRef.current) return;
@@ -809,7 +857,12 @@ export default function AiAgentInterview() {
 
   useEffect(() => {
     if (phase === 'complete' || phase === 'error') {
-      try { if (recognitionRef.current) recognitionRef.current.stop(); } catch (e) {}
+      if (mediaRecorderRef.current) {
+        discardRecordingRef.current = true;
+        try { mediaRecorderRef.current.stop(); } catch (e) {}
+      } else {
+        cleanupRecorder();
+      }
       setIsListening(false);
       setMicActive(false);
       if (videoStream) {
@@ -955,9 +1008,6 @@ export default function AiAgentInterview() {
       stream.getTracks().forEach(t => { try { t.stop(); } catch (e) {} });
       videoStreamRef.current = null;
       setVideoStream(null);
-    }
-    if (recognitionRef.current) {
-      try { recognitionRef.current.stop(); } catch (e) {}
     }
     stopMic();
     if (audioContextRef.current && audioContextRef.current.state !== 'closed') {
