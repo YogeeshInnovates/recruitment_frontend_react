@@ -118,7 +118,6 @@ export default function AiAgentInterview() {
   const speechFailCountRef = useRef(0);
   const audioContextRef = useRef(null);
   const audioAnalyserRef = useRef(null);
-  const audioPollRef = useRef(null);
   const secondVoiceIntervalRef = useRef(null);
 
   useEffect(() => { phaseRef.current = phase; }, [phase]);
@@ -139,7 +138,6 @@ export default function AiAgentInterview() {
   useEffect(() => {
     return () => {
       if (idleTimerRef.current) clearTimeout(idleTimerRef.current);
-      if (audioPollRef.current) clearInterval(audioPollRef.current);
       if (countdownIntervalRef.current) clearInterval(countdownIntervalRef.current);
       if (countdownDebounceRef.current) clearTimeout(countdownDebounceRef.current);
     };
@@ -325,10 +323,6 @@ export default function AiAgentInterview() {
       clearTimeout(idleTimerRef.current);
       idleTimerRef.current = null;
     }
-    if (audioPollRef.current) {
-      clearInterval(audioPollRef.current);
-      audioPollRef.current = null;
-    }
   }, []);
 
   const countdownCompleteRef = useRef(null);
@@ -410,26 +404,6 @@ export default function AiAgentInterview() {
     }
   }, []);
 
-  const armSilenceTimer = useCallback(() => {
-    if (idleTimerRef.current) clearTimeout(idleTimerRef.current);
-    idleTimerRef.current = setTimeout(idleTimerCallback, 10000);
-  }, [idleTimerCallback]);
-
-  const startSilenceTracking = useCallback(() => {
-    armSilenceTimer();
-    if (audioPollRef.current) clearInterval(audioPollRef.current);
-    audioPollRef.current = setInterval(() => {
-      const analyser = audioAnalyserRef.current;
-      if (!analyser) return;
-      const data = new Uint8Array(analyser.frequencyBinCount);
-      analyser.getByteFrequencyData(data);
-      let sum = 0;
-      for (let i = 0; i < data.length; i++) sum += data[i];
-      const avg = sum / data.length;
-      if (avg > 6) armSilenceTimer();
-    }, 1000);
-  }, [armSilenceTimer]);
-
   const startMic = useCallback((clearTranscript = true) => {
     if (!recognitionRef.current || isProcessingRef.current) return;
     if (clearTranscript) {
@@ -437,19 +411,20 @@ export default function AiAgentInterview() {
       setShowSubtitle('');
       lastSpeechRef.current = '';
       accumulatedTranscriptRef.current = '';
-      startSilenceTracking();
     }
-    setMicBlocked(false);
-    setShowTextInput(false);
-    setCountdown(null);
     try {
       recognitionRef.current.start();
       setIsListening(true);
       setMicActive(true);
+      setMicBlocked(false);
+      setShowTextInput(false);
+      setCountdown(null);
+      if (idleTimerRef.current) clearTimeout(idleTimerRef.current);
+      idleTimerRef.current = setTimeout(idleTimerCallback, 12000);
     } catch (e) {
       console.log('Mic start error:', e);
     }
-  }, [startSilenceTracking]);
+  }, []);
 
   const sendToAI = useCallback(async (userMessage) => {
     if (isProcessingRef.current) return;
@@ -606,9 +581,10 @@ export default function AiAgentInterview() {
         }
       }
 
-      if (newFinal || interimTranscript) {
+      if ((newFinal || interimTranscript) && idleTimerRef.current) {
+        clearTimeout(idleTimerRef.current);
         setCountdown(null);
-        armSilenceTimer();
+        idleTimerRef.current = setTimeout(idleTimerCallback, 12000);
       }
 
       const displayText = accumulatedTranscriptRef.current.trim() || interimTranscript;
@@ -622,6 +598,11 @@ export default function AiAgentInterview() {
         if (!isProcessingRef.current && phaseRef.current === 'active') {
           setTimeout(() => startMic(false), 500);
         }
+      } else if (event.error === 'no-speech') {
+        speechFailCountRef.current += 1;
+        if (speechFailCountRef.current >= 2 && phaseRef.current === 'active') {
+          setMicBlocked(true);
+        }
       } else if (event.error === 'not-allowed' || event.error === 'audio-capture' || event.error === 'service-not-allowed') {
         speechFailCountRef.current += 1;
         if (phaseRef.current === 'active') {
@@ -633,10 +614,6 @@ export default function AiAgentInterview() {
 
     recognition.onend = () => {
       if (phaseRef.current === 'active' && !isProcessingRef.current) {
-        if (lastSpeechRef.current && lastSpeechRef.current.trim()) {
-          accumulatedTranscriptRef.current += lastSpeechRef.current.trim() + ' ';
-          lastSpeechRef.current = '';
-        }
         setTimeout(() => {
           if (phaseRef.current === 'active' && !isProcessingRef.current) startMic(false);
         }, 300);
