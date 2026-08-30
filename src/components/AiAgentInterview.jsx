@@ -51,72 +51,6 @@ const INSTRUCTIONS_TEXT =
   'Do not take help from any person or device. Switching tabs will be recorded and flagged. ' +
   'Answer naturally, in your own words. Good luck!';
 
-const INTERVIEW_KEYWORDS = [
-  'postgresql','sql','java','javascript','spring','jwt','api','database','library',
-  'oop','mysql','react','python','git','docker','aws','angular','node','typescript',
-  'mongodb','redis','kafka','microservices','authentication','authorization',
-  'hibernate','framework','backend','frontend','debugging','postman','linux','cloud',
-  'server','client','query','schema','function','variable','compiler','syntax',
-  'exception','thread','memory','inheritance','polymorphism','encapsulation','algorithm',
-  'repository','controller','request','response','security','session','cookie','token'
-];
-
-const INTERVIEW_PHRASES = {
-  'post school': 'postgresql',
-  'posted school': 'postgresql',
-  'post grades': 'postgresql',
-  'spring boot': 'springboot'
-};
-
-const SPEECH_GRAMMAR = '#JSGF V1.0; grammar Interview; public <vocab> = '
-  + INTERVIEW_KEYWORDS.join(' | ') + ' ;';
-
-function levenshtein(a, b) {
-  if (a === b) return 0;
-  const m = a.length, n = b.length;
-  if (m === 0) return n;
-  if (n === 0) return m;
-  let prev = new Array(n + 1);
-  let curr = new Array(n + 1);
-  for (let j = 0; j <= n; j++) prev[j] = j;
-  for (let i = 1; i <= m; i++) {
-    curr[0] = i;
-    for (let j = 1; j <= n; j++) {
-      const cost = a[i - 1].toLowerCase() === b[j - 1].toLowerCase() ? 0 : 1;
-      curr[j] = Math.min(prev[j] + 1, curr[j - 1] + 1, prev[j - 1] + cost);
-    }
-    [prev, curr] = [curr, prev];
-  }
-  return prev[n];
-}
-
-function correctSpelling(text) {
-  if (!text) return text;
-  let out = String(text);
-  for (const phrase of Object.keys(INTERVIEW_PHRASES)) {
-    const escaped = phrase.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-    out = out.replace(new RegExp(`\\b${escaped}\\b`, 'gi'), INTERVIEW_PHRASES[phrase]);
-  }
-  return out.split(/\s+/).map(token => {
-    const clean = token.replace(/[^a-zA-Z]/g, '');
-    if (clean.length < 4) return token;
-    let best = null;
-    let bestDist = Infinity;
-    for (const keyword of INTERVIEW_KEYWORDS) {
-      const d = levenshtein(clean, keyword);
-      if (d < bestDist) {
-        bestDist = d;
-        best = keyword;
-      }
-    }
-    const maxDist = Math.max(1, Math.floor(clean.length / 3));
-    if (best && bestDist > 0 && bestDist <= maxDist && clean.toLowerCase() !== best) {
-      return token.replace(new RegExp(clean, 'i'), best);
-    }
-    return token;
-  }).join(' ');
-}
-
 export default function AiAgentInterview() {
   const { interviewId } = useParams();
   const [searchParams] = useSearchParams();
@@ -610,17 +544,6 @@ export default function AiAgentInterview() {
     recognition.interimResults = true;
     recognition.lang = 'en-US';
 
-    try {
-      const SpeechGrammarListCtor = window.SpeechGrammarList || window.webkitSpeechGrammarList;
-      if (SpeechGrammarListCtor) {
-        const grammarList = new SpeechGrammarListCtor();
-        grammarList.addFromString(SPEECH_GRAMMAR, 1);
-        recognition.grammars = grammarList;
-      }
-    } catch (e) {
-      console.log('Grammar setup skipped:', e);
-    }
-
     recognition.onresult = (event) => {
       let newFinal = '';
       let interimTranscript = '';
@@ -635,13 +558,13 @@ export default function AiAgentInterview() {
       }
 
       if (newFinal) {
-        accumulatedTranscriptRef.current += correctSpelling(newFinal) + ' ';
+        accumulatedTranscriptRef.current += newFinal + ' ';
         noSpeechCountRef.current = 0;
         consecutiveSilenceRef.current = 0;
         speechFailCountRef.current = 0;
         lastSpeechRef.current = '';
       } else if (interimTranscript) {
-        lastSpeechRef.current = correctSpelling(interimTranscript);
+        lastSpeechRef.current = interimTranscript;
         consecutiveSilenceRef.current = 0;
         speechFailCountRef.current = 0;
       }
@@ -664,7 +587,7 @@ export default function AiAgentInterview() {
         idleTimerRef.current = setTimeout(idleTimerCallback, 12000);
       }
 
-      const displayText = accumulatedTranscriptRef.current.trim() || correctSpelling(interimTranscript);
+      const displayText = accumulatedTranscriptRef.current.trim() || interimTranscript;
       setCandidateSpeech(displayText);
       setShowSubtitle(displayText);
     };
