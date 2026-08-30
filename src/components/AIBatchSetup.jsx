@@ -79,6 +79,10 @@ export default function AIBatchSetup() {
       setError('Create an organization first to start AI interviews');
       return;
     }
+    if (!round) {
+      setError('Select the interview round');
+      return;
+    }
     setLoading(true);
     setError('');
     try {
