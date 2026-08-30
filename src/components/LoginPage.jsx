@@ -64,6 +64,9 @@ export default function LoginPage() {
             <button type="submit" className="btn btn-primary btn-block" disabled={submitting}>
               {submitting ? 'Signing in...' : 'Sign In'}
             </button>
+            <div style={{ textAlign: 'center', marginTop: 12 }}>
+              <Link to="/forgot-password" className="auth-link">Forgot password?</Link>
+            </div>
           </form>
 
           <p className="auth-footer-text">

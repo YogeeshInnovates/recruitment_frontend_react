@@ -9,6 +9,8 @@ import Layout from './components/Layout';
 import HomePage from './components/HomePage';
 import LoginPage from './components/LoginPage';
 import SignupPage from './components/SignupPage';
+import ForgotPassword from './components/ForgotPassword';
+import ResetPassword from './components/ResetPassword';
 import UserDashboard from './components/UserDashboard';
 import Dashboard from './components/Dashboard';
 import JobPostList from './components/JobPostList';
@@ -58,6 +60,8 @@ function AppRoutes() {
       <Route path="/" element={<HomePage />} />
       <Route path="/login" element={user ? <Navigate to={isRecruiter ? '/dashboard' : '/user/dashboard'} replace /> : <LoginPage />} />
       <Route path="/signup" element={user ? <Navigate to={isRecruiter ? '/dashboard' : '/user/dashboard'} replace /> : <SignupPage />} />
+      <Route path="/forgot-password" element={<ForgotPassword />} />
+      <Route path="/reset-password" element={<ResetPassword />} />
       <Route path="/user/dashboard" element={<RequireAuth><UserDashboard /></RequireAuth>} />
 
       <Route path="/org/setup" element={<OrganizationSetup />} />
