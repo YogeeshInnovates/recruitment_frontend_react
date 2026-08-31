@@ -2975,10 +2975,9 @@ tbody tr:nth-child(even):hover td {
   background: var(--panel);
   border-bottom: 1px solid var(--panel-border);
 }
-.navbar h2 { color: var(--text-main); }
-.navbar-avatar { background: rgba(37,99,235,0.18); color: #93c5fd; }
-@media (prefers-color-scheme: light) { }
-:root[data-theme="light"] .navbar-avatar { color: #2563eb; }
+.navbar h2,
+.navbar-name { color: var(--text-main); }
+.navbar-avatar { background: rgba(37,99,235,0.18); color: var(--text-main); }
 
 /* Cards (opaque -> text always readable) */
 .card {
@@ -3272,6 +3271,74 @@ tbody tr:hover td { background: var(--row-hover); }
 }
 :root[data-theme="light"] .rd-card-desc { color: #4b5563 !important; }
 :root[data-theme="light"] .rd-card-title { color: #111827 !important; }
+
+/* =====================================================================
+   RESUME SCREENING WIZARD (/screening) - THEME AWARE
+   Dark mode: dark card + light text. Light mode: white card + dark text.
+   ===================================================================== */
+.abs-page {
+  background: linear-gradient(160deg, var(--bg1) 0%, var(--bg2) 100%);
+}
+.abs-card {
+  background: var(--panel);
+  border: 1px solid var(--panel-border);
+  color: var(--text-main);
+}
+.abs-title { color: var(--text-main); }
+.abs-subtitle { color: var(--text-sub); }
+.abs-field-label { color: var(--text-main); }
+.abs-drop-text { color: var(--text-main); }
+.abs-drop-hint { color: var(--text-muted); }
+.abs-step-label { color: var(--text-main); }
+.abs-step-num { background: var(--row-alt); color: var(--text-muted); border: 1px solid var(--panel-border); }
+.abs-file-item { background: var(--row-alt); border: 1px solid var(--panel-border); }
+.abs-file-item-name { color: var(--text-main); }
+.abs-file-item-size { color: var(--text-muted); }
+.abs-file-remove { background: rgba(239,68,68,0.16); color: #f87171; }
+.abs-input, .abs-textarea {
+  background: var(--input-bg);
+  border: 1px solid var(--input-border);
+  color: var(--input-text);
+}
+.abs-input::placeholder, .abs-textarea::placeholder { color: var(--text-muted); }
+.abs-input:focus, .abs-textarea:focus { border-color: #7c3aed; box-shadow: 0 0 0 3px rgba(124,58,237,0.18); }
+.abs-drop {
+  border: 2px dashed var(--input-border);
+  background: var(--input-bg);
+}
+.abs-drop.over { border-color: #7c3aed; background: rgba(124,58,237,0.08); }
+.abs-error { background: rgba(239,68,68,0.1); border: 1px solid rgba(239,68,68,0.35); color: #f87171; }
+.abs-ok { color: #4ade80; }
+.abs-warn { color: #fbbf24; }
+.abs-table th { background: var(--th-bg); color: var(--th-text); border-bottom: 1px solid var(--panel-border); }
+.abs-table td { border-bottom: 1px solid var(--td-border); color: var(--text-sub); }
+.abs-file { color: var(--text-main); }
+.abs-name { color: var(--text-main); }
+.abs-skills { color: #a78bfa; }
+.abs-slot { color: #38bdf8; }
+.abs-step.over { opacity: 0.7; }
+
+:root[data-theme="light"] .abs-page {
+  background: linear-gradient(160deg, #0f172a 0%, #1e293b 100%);
+}
+:root[data-theme="light"] .abs-card {
+  background: #ffffff;
+  border-color: #eef2f8;
+}
+:root[data-theme="light"] .abs-error { background: #fef2f2; border-color: #fecaca; color: #dc2626; }
+:root[data-theme="light"] .abs-ok { color: #059669; }
+:root[data-theme="light"] .abs-warn { color: #b45309; }
+:root[data-theme="light"] .abs-skills { color: #7c3aed; }
+:root[data-theme="light"] .abs-slot { color: #0ea5e9; }
+:root[data-theme="light"] .abs-file-remove { background: #fee2e2; color: #dc2626; }
+:root[data-theme="light"] .abs-drop { border-color: #e2e8f0; background: #f8fafc; }
+:root[data-theme="light"] .abs-file-item { background: #f8fafc; border-color: #e2e8f0; }
+:root[data-theme="light"] .abs-step-num { background: #e2e8f0; color: #64748b; }
+:root[data-theme="light"] .abs-table th { background: #f8fafc; color: #64748b; border-bottom-color: #e2e8f0; }
+:root[data-theme="light"] .abs-table td { border-bottom-color: #f1f5f9; color: #334155; }
+:root[data-theme="light"] .abs-file { color: #0f172a; }
+:root[data-theme="light"] .abs-name { color: #0f172a; }
+
 
 
 
