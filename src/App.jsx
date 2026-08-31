@@ -2,6 +2,7 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { useContext } from 'react';
 import { AuthProvider, AuthContext } from './context/AuthContext';
 import { OrgContext, OrgProvider } from './context/OrgContext';
+import { ThemeProvider } from './context/ThemeContext';
 export { OrgContext };
 import WakeUpGate from './components/WakeUpGate';
 import KeepAliveGate from './components/KeepAliveGate';
@@ -32,6 +33,7 @@ import AIBatchSetup from './components/AIBatchSetup';
 import BatchDashboard from './components/BatchDashboard';
 import ResumeScreening from './components/ResumeScreening';
 import SystemCheck from './components/SystemCheck';
+import SettingsPage from './components/SettingsPage';
 
 function RequireAuth({ children }) {
   const { user, loading } = useContext(AuthContext);
@@ -88,6 +90,7 @@ function AppRoutes() {
         <Route path="/interview/batch/dashboard" element={<BatchDashboard />} />
         <Route path="/interview/batch/dashboard/:jobId" element={<BatchDashboard />} />
         <Route path="/screening" element={<ResumeScreening />} />
+        <Route path="/settings" element={<SettingsPage />} />
       </Route>
     </Routes>
   );
@@ -95,16 +98,18 @@ function AppRoutes() {
 
 function App() {
   return (
-    <BrowserRouter>
-      <WakeUpGate>
-        <AuthProvider>
-          <OrgProvider>
-            <KeepAliveGate />
-            <AppRoutes />
-          </OrgProvider>
-        </AuthProvider>
-      </WakeUpGate>
-    </BrowserRouter>
+    <ThemeProvider>
+      <BrowserRouter>
+        <WakeUpGate>
+          <AuthProvider>
+            <OrgProvider>
+              <KeepAliveGate />
+              <AppRoutes />
+            </OrgProvider>
+          </AuthProvider>
+        </WakeUpGate>
+      </BrowserRouter>
+    </ThemeProvider>
   );
 }
 

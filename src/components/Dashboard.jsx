@@ -1,14 +1,47 @@
-import { useContext } from 'react';
+import { useContext, useState, useEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import { OrgContext } from '../App';
 import { AuthContext } from '../context/AuthContext';
+import api from '../api/api';
 
 export default function Dashboard() {
   const { org } = useContext(OrgContext);
   const { user } = useContext(AuthContext);
+  const [stats, setStats] = useState({ candidates: 0, jobs: 0, applications: 0 });
+  const [loadingStats, setLoadingStats] = useState(true);
+
+  const fetchStats = useCallback(async () => {
+    if (!org?.id) return;
+    setLoadingStats(true);
+    try {
+      const [c, j, a] = await Promise.all([
+        api.get(`/api/organizations/${org.id}/candidates`),
+        api.get(`/api/organizations/${org.id}/jobs`),
+        api.get(`/api/organizations/${org.id}/applications`),
+      ]);
+      const cands = Array.isArray(c.data || c) ? (c.data || c) : [];
+      const jobs = Array.isArray(j.data || j) ? (j.data || j) : [];
+      const apps = Array.isArray(a.data || a) ? (a.data || a) : [];
+      setStats({ candidates: cands.length, jobs: jobs.length, applications: apps.length });
+    } catch {
+      setStats({ candidates: 0, jobs: 0, applications: 0 });
+    } finally {
+      setLoadingStats(false);
+    }
+  }, [org]);
+
+  useEffect(() => { fetchStats(); }, [fetchStats]);
+
   const initials = user?.name
     ? user.name.split(' ').map(w => w[0]).join('').substring(0, 2).toUpperCase()
     : 'U';
+
+  const statsData = [
+    { label: 'Candidates', value: stats.candidates, icon: '👥', to: '/candidates', color: 'linear-gradient(135deg,#2563eb,#3b82f6)' },
+    { label: 'Open Jobs', value: stats.jobs, icon: '💼', to: '/jobs', color: 'linear-gradient(135deg,#7c3aed,#8b5cf6)' },
+    { label: 'Applications', value: stats.applications, icon: '📝', to: '/applications', color: 'linear-gradient(135deg,#0ea5e9,#06b6d4)' },
+    { label: 'Interviews', value: '—', icon: '🎤', to: '/interview/batch/dashboard', color: 'linear-gradient(135deg,#22c55e,#10b981)' },
+  ];
 
   return (
     <div className="rd">
@@ -23,8 +56,21 @@ export default function Dashboard() {
         <div className="rd-badge">Recruiter</div>
       </div>
 
+      {/* KPI stat cards */}
+      <div className="rd-stats">
+        {statsData.map((s) => (
+          <Link to={s.to} className="rd-stat-card" key={s.label}>
+            <div className="rd-stat-icon" style={{ background: s.color }}>{s.icon}</div>
+            <div className="rd-stat-body">
+              <div className="rd-stat-value">{loadingStats ? '…' : s.value}</div>
+              <div className="rd-stat-label">{s.label}</div>
+            </div>
+          </Link>
+        ))}
+      </div>
+
       <div className="rd-hero">
-        <h2 className="rd-hero-title">What would you like to do today?</h2>
+        <h2 className="rd-hero-title">Quick actions</h2>
         <div className="rd-hero-cards">
           <Link to="/screening" className="rd-card">
             <div className="rd-card-glow" />

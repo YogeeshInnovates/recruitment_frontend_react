@@ -11,6 +11,7 @@ export default function Sidebar() {
     { to: '/candidates', icon: '👤', label: 'Candidates' },
     { to: '/interview/setup/demo', icon: '🎤', label: 'Mock Interview' },
     { to: '/team', icon: '👥', label: 'Add Recruiter' },
+    { to: '/settings', icon: '⚙️', label: 'Settings' },
   ];
 
   return (

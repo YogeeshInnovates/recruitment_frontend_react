@@ -2,6 +2,7 @@ import { useState, useEffect, useContext } from 'react';
 import { Link } from 'react-router-dom';
 import { OrgContext } from '../App';
 import api from '../api/api';
+import KpiRow from './KpiRow';
 
 export default function CandidateList() {
   const { org } = useContext(OrgContext);
@@ -51,6 +52,15 @@ export default function CandidateList() {
           + Add Candidate
         </Link>
       </div>
+
+      <KpiRow
+        items={[
+          { label: 'Total Candidates', value: candidates.length, icon: '👥', to: '/candidates', color: 'linear-gradient(135deg,#2563eb,#3b82f6)' },
+          { label: 'Upcoming Interviews', value: '—', icon: '🎤', to: '/interview/batch/dashboard', color: 'linear-gradient(135deg,#7c3aed,#8b5cf6)' },
+          { label: 'Shortlisted', value: '—', icon: '⭐', to: '/applications', color: 'linear-gradient(135deg,#f59e0b,#fbbf24)' },
+          { label: 'Hired', value: '0', icon: '✅', to: '/applications', color: 'linear-gradient(135deg,#22c55e,#10b981)' },
+        ]}
+      />
 
       <div className="card">
         <div className="card-header">

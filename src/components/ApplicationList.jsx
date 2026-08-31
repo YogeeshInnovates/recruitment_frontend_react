@@ -2,6 +2,7 @@ import { useState, useEffect, useContext } from 'react';
 import { Link } from 'react-router-dom';
 import { OrgContext } from '../App';
 import api from '../api/api';
+import KpiRow from './KpiRow';
 
 export default function ApplicationList() {
   const { org } = useContext(OrgContext);
@@ -44,6 +45,15 @@ export default function ApplicationList() {
           + Create Application
         </Link>
       </div>
+
+      <KpiRow
+        items={[
+          { label: 'Total Applications', value: applications.length, icon: '📋', to: '/applications', color: 'linear-gradient(135deg,#2563eb,#3b82f6)' },
+          { label: 'Pending', value: applications.filter(a => (a.status || '').toUpperCase() === 'PENDING').length, icon: '⏳', to: '/applications', color: 'linear-gradient(135deg,#f59e0b,#fbbf24)' },
+          { label: 'In Review', value: applications.filter(a => (a.status || '').toUpperCase() === 'REVIEWING' || (a.status || '').toUpperCase() === 'REVIEW').length, icon: '🔍', to: '/applications', color: 'linear-gradient(135deg,#7c3aed,#8b5cf6)' },
+          { label: 'Accepted', value: applications.filter(a => (a.status || '').toUpperCase() === 'ACCEPTED' || (a.status || '').toUpperCase() === 'SELECTED').length, icon: '✅', to: '/applications', color: 'linear-gradient(135deg,#22c55e,#10b981)' },
+        ]}
+      />
 
       <div className="card">
         <div className="card-header">

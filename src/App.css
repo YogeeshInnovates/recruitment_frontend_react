@@ -2915,4 +2915,330 @@ tbody tr:nth-child(even):hover td {
   box-shadow: 0 0 0 4px rgba(59,130,246,0.12) !important;
 }
 
+/* =====================================================================
+   THEME SYSTEM  (dark = default, light via [data-theme="light"])
+   Applies to the recruiter app shell only. Landing/auth/user pages stay
+   dark by design and are unaffected.
+   ===================================================================== */
+
+/* ---------- Dark theme (default) : variables ---------- */
+[data-theme="dark"],
+:root[data-theme="dark"] {
+  --shell-bg-1: #0b1220;
+  --shell-bg-2: #0f172a;
+  --shell-accent: radial-gradient(1100px 500px at 90% -10%, rgba(37,99,235,0.16), transparent),
+                  radial-gradient(900px 480px at 0% 20%, rgba(139,92,246,0.12), transparent);
+  --panel-bg: rgba(30, 41, 59, 0.72);
+  --panel-border: rgba(255,255,255,0.08);
+  --panel-head-bg: linear-gradient(180deg, rgba(30,41,59,0.9), rgba(30,41,59,0.6));
+  --panel-text: #f1f5f9;
+  --panel-text-sub: #94a3b8;
+  --panel-text-muted: #64748b;
+  --th-bg: linear-gradient(180deg, #1e293b, #243349);
+  --th-text: #a5b4c8;
+  --th-border: #2b3a52;
+  --td-border: rgba(255,255,255,0.06);
+  --row-hover: rgba(37,99,235,0.12);
+  --row-alt: rgba(255,255,255,0.02);
+  --input-bg: rgba(15,23,42,0.7);
+  --input-border: rgba(255,255,255,0.12);
+  --input-text: #f1f5f9;
+  --control-border: #2b3a52;
+  --control-bg: rgba(15,23,42,0.6);
+  --nav-bg: rgba(15,23,42,0.8);
+  --nav-border: rgba(255,255,255,0.08);
+  --nav-text: #e2e8f0;
+  --border-soft: rgba(255,255,255,0.1);
+  --muted-fill: #f8fafc;
+}
+
+/* ---------- Light theme : override variables ---------- */
+:root[data-theme="light"] {
+  --shell-bg-1: #f8fafc;
+  --shell-bg-2: #eef2f7;
+  --shell-accent: radial-gradient(1200px 600px at 100% 0%, rgba(37,99,235,0.06), transparent),
+                  radial-gradient(1000px 500px at 0% 20%, rgba(139,92,246,0.05), transparent);
+  --panel-bg: #ffffff;
+  --panel-border: rgba(226,232,240,0.9);
+  --panel-head-bg: linear-gradient(180deg, #ffffff, #f8fafc);
+  --panel-text: #0f172a;
+  --panel-text-sub: #64748b;
+  --panel-text-muted: #94a3b8;
+  --th-bg: linear-gradient(180deg, #f1f5f9, #e8eef6);
+  --th-text: #475569;
+  --th-border: #dfe7f0;
+  --td-border: #eef2f7;
+  --row-hover: #f0f6ff;
+  --row-alt: #fbfcfe;
+  --input-bg: #ffffff;
+  --input-border: #dbe3ee;
+  --input-text: #334155;
+  --control-border: #dbe3ee;
+  --control-bg: #ffffff;
+  --nav-bg: rgba(255,255,255,0.85);
+  --nav-border: rgba(226,232,240,0.8);
+  --nav-text: #334155;
+  --border-soft: #e2e8f0;
+  --muted-fill: #f8fafc;
+}
+
+/* Apply shell vars to the recruiter app area */
+[data-theme="dark"] .main-content {
+  background:
+    var(--shell-accent),
+    linear-gradient(180deg, var(--shell-bg-1) 0%, var(--shell-bg-2) 100%);
+}
+.main-content {
+  background:
+    var(--shell-accent),
+    linear-gradient(180deg, var(--shell-bg-1) 0%, var(--shell-bg-2) 100%);
+}
+
+/* Navbar */
+.navbar {
+  background: var(--nav-bg);
+  border-bottom: 1px solid var(--nav-border);
+  backdrop-filter: blur(12px);
+}
+.navbar h2 { color: var(--nav-text); }
+.navbar-search {
+  background: var(--control-bg);
+  border: 1px solid var(--control-border);
+  color: var(--input-text);
+}
+.navbar-search::placeholder { color: var(--panel-text-muted); }
+.navbar-profile .navbar-name { color: var(--nav-text); }
+.navbar-avatar {
+  background: rgba(37,99,235,0.15);
+  color: #93c5fd;
+}
+
+/* Cards / panels */
+.card {
+  background: var(--panel-bg);
+  border: 1px solid var(--panel-border);
+  color: var(--panel-text);
+}
+.card-header {
+  background: var(--panel-head-bg);
+  border-bottom: 1px solid var(--border-soft);
+}
+.card-header h3 { color: var(--panel-text); }
+.card-body { color: var(--panel-text); }
+
+/* Tables */
+.table-container { color: var(--panel-text); }
+thead th {
+  background: var(--th-bg);
+  color: var(--th-text);
+  border-bottom: 1px solid var(--th-border);
+}
+tbody td {
+  border-bottom: 1px solid var(--td-border);
+  color: var(--panel-text-sub);
+}
+tbody td a, tbody td { color: var(--panel-text-sub); }
+tbody tr:hover td { background: var(--row-hover); }
+tbody tr:nth-child(even) td { background: var(--row-alt); }
+tbody tr:nth-child(even):hover td { background: var(--row-hover); }
+td[style*="fontWeight"] { color: var(--panel-text); }
+
+/* Form controls */
+.form-group label { color: var(--panel-text); }
+.form-group input,
+.form-group select,
+.form-group textarea {
+  background: var(--input-bg);
+  border: 1px solid var(--input-border);
+  color: var(--input-text);
+}
+.form-group input::placeholder,
+.form-group textarea::placeholder { color: var(--panel-text-muted); }
+select option { background: #1e293b; color: #f1f5f9; }
+
+/* Page inline headings (dark text) -> light-on-dark in dark mode */
+.page-content h1,
+.page-content h2:not(.rd-greeting) {
+  color: var(--panel-text);
+}
+
+/* Buttons text */
+.btn-secondary { color: var(--panel-text); }
+.btn-outline {
+  border: 1px solid var(--control-border);
+  color: var(--panel-text);
+}
+.btn-outline:hover { background: var(--row-hover); }
+
+/* Tags */
+.tag-blue { background: rgba(37,99,235,0.16); color: #93c5fd; }
+.tag-green { background: rgba(34,197,94,0.16); color: #4ade80; }
+.tag-red { background: rgba(239,68,68,0.16); color: #f87171; }
+.badge-info { background: rgba(37,99,235,0.16); color: #93c5fd; }
+.badge-success { background: rgba(34,197,94,0.16); color: #4ade80; }
+.badge-danger { background: rgba(239,68,68,0.16); color: #f87171; }
+.badge-warning { background: rgba(245,158,11,0.16); color: #fbbf24; }
+.badge-secondary { background: rgba(255,255,255,0.08); color: #cbd5e1; }
+
+/* Detail items */
+.detail-item { background: var(--control-bg); border: 1px solid var(--control-border); }
+.detail-item .value { color: var(--panel-text); }
+
+/* Empty state */
+.empty-state h3 { color: var(--panel-text); }
+
+/* Schedule / misc panels using --light background */
+.schedule-section { background: var(--control-bg); }
+
+/* Abs (batch wizard) is a standalone light card; keep it light in both themes */
+
+/* Light-theme specific corrections */
+[data-theme="light"] tbody td { color: #334155; }
+[data-theme="light"] tbody td a { color: #2563eb; }
+[data-theme="light"] .detail-item .value { color: #0f172a; }
+[data-theme="light"] .card-body { color: #334155; }
+
+/* ---------- Theme toggle switch ---------- */
+.theme-toggle {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 6px;
+}
+.theme-toggle-track {
+  display: flex;
+  align-items: center;
+  width: 56px;
+  height: 30px;
+  border-radius: 999px;
+  background: var(--control-border);
+  padding: 3px;
+  transition: background 0.3s;
+}
+.theme-toggle-thumb {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #2563eb, #7c3aed);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  transition: transform 0.3s;
+}
+.theme-toggle.on .theme-toggle-thumb {
+  transform: translateX(26px);
+}
+.theme-toggle.on .theme-toggle-track {
+  background: #64748b;
+}
+
+/* ---------- Dashboard KPI stat cards ---------- */
+.rd-stats {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 18px;
+  margin-bottom: 48px;
+}
+.rd-stat-card {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 24px;
+  border-radius: 18px;
+  background: linear-gradient(135deg, rgba(30,41,59,0.85), rgba(30,41,59,0.6));
+  border: 1px solid rgba(255,255,255,0.08);
+  text-decoration: none;
+  transition: all 0.3s ease;
+}
+.rd-stat-card:hover {
+  transform: translateY(-4px);
+  border-color: rgba(96,165,250,0.35);
+  box-shadow: 0 16px 40px rgba(0,0,0,0.3);
+}
+.rd-stat-icon {
+  width: 54px;
+  height: 54px;
+  border-radius: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 26px;
+  box-shadow: 0 8px 20px rgba(0,0,0,0.25);
+  flex-shrink: 0;
+}
+.rd-stat-value {
+  font-size: 30px;
+  font-weight: 800;
+  color: #f1f5f9;
+  line-height: 1.1;
+}
+.rd-stat-label {
+  font-size: 13px;
+  color: #94a3b8;
+  margin-top: 3px;
+}
+@media (max-width: 992px) {
+  .rd-stats { grid-template-columns: repeat(2, 1fr); }
+}
+@media (max-width: 640px) {
+  .rd-stats { grid-template-columns: 1fr; }
+}
+
+/* ---------- Reusable KPI stat cards (list pages) ---------- */
+.kpi-row {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 16px;
+  margin-bottom: 24px;
+}
+.kpi-card {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 20px;
+  border-radius: 16px;
+  background: var(--panel-bg);
+  border: 1px solid var(--panel-border);
+  text-decoration: none;
+  transition: all 0.25s ease;
+}
+.kpi-card:hover {
+  transform: translateY(-3px);
+  border-color: rgba(96,165,250,0.4);
+  box-shadow: 0 12px 32px rgba(0,0,0,0.15);
+}
+.kpi-icon {
+  width: 48px;
+  height: 48px;
+  border-radius: 13px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 23px;
+  color: #fff;
+  flex-shrink: 0;
+  box-shadow: 0 6px 16px rgba(0,0,0,0.2);
+}
+.kpi-value {
+  font-size: 26px;
+  font-weight: 800;
+  color: var(--panel-text);
+  line-height: 1.1;
+}
+.kpi-label {
+  font-size: 12.5px;
+  color: var(--panel-text-sub);
+  margin-top: 3px;
+}
+@media (max-width: 992px) {
+  .kpi-row { grid-template-columns: repeat(2, 1fr); }
+}
+@media (max-width: 640px) {
+  .kpi-row { grid-template-columns: 1fr; }
+}
+
+
+
+
 

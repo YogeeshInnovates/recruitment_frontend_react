@@ -2,6 +2,7 @@ import { useState, useEffect, useContext } from 'react';
 import { Link } from 'react-router-dom';
 import { OrgContext } from '../App';
 import api from '../api/api';
+import KpiRow from './KpiRow';
 
 export default function JobPostList() {
   const { org } = useContext(OrgContext);
@@ -51,6 +52,15 @@ export default function JobPostList() {
           + New Job
         </Link>
       </div>
+
+      <KpiRow
+        items={[
+          { label: 'Total Positions', value: jobs.length, icon: '💼', to: '/jobs', color: 'linear-gradient(135deg,#2563eb,#3b82f6)' },
+          { label: 'Open', value: jobs.filter(j => (j.status || 'OPEN').toUpperCase() === 'OPEN').length, icon: '🟢', to: '/jobs', color: 'linear-gradient(135deg,#22c55e,#10b981)' },
+          { label: 'Closed', value: jobs.filter(j => (j.status || '').toUpperCase() === 'CLOSED').length, icon: '🔒', to: '/jobs', color: 'linear-gradient(135deg,#64748b,#94a3b8)' },
+          { label: 'Applications', value: '—', icon: '📝', to: '/applications', color: 'linear-gradient(135deg,#7c3aed,#8b5cf6)' },
+        ]}
+      />
 
       <div className="card">
         <div className="card-header">
