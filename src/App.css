@@ -3045,6 +3045,13 @@ tbody tr:hover td { background: transparent !important; color: var(--text-main);
 }
 .navbar-search::placeholder,
 .card-header input::placeholder { color: var(--text-muted) !important; }
+.card-header input:focus,
+.navbar-search:focus {
+  background: var(--input-bg) !important;
+  border-color: var(--accent) !important;
+  color: var(--input-text) !important;
+  box-shadow: 0 0 0 3px rgba(37,99,235,0.2) !important;
+}
 
 /* Button text legibility */
 .btn-outline {
@@ -3052,7 +3059,12 @@ tbody tr:hover td { background: transparent !important; color: var(--text-main);
   color: var(--text-main) !important;
 }
 .btn-outline:hover { background: var(--row-hover) !important; }
-.btn-secondary { color: var(--text-main); }
+.btn-secondary {
+  background: var(--input-bg) !important;
+  border: 1px solid var(--input-border) !important;
+  color: var(--text-main) !important;
+}
+.btn-secondary:hover { background: var(--row-hover) !important; }
 
 /* Tags/badges - high contrast on dark */
 .tag-blue { background: rgba(37,99,235,0.18); color: #93c5fd; }
