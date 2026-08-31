@@ -3015,8 +3015,8 @@ tbody td {
 td[style*="fontWeight"] { color: var(--text-main); font-weight: 600; }
 tbody td a { color: var(--accent); }
 tbody tr:nth-child(even) td,
-tbody tr:nth-child(odd) td { background: transparent; }
-tbody tr:hover td { background: var(--row-hover); color: var(--text-main); }
+tbody tr:nth-child(odd) td { background: transparent !important; }
+tbody tr:hover td { background: transparent !important; color: var(--text-main); }
 
 /* Form controls */
 .form-group label { color: var(--text-main); }
