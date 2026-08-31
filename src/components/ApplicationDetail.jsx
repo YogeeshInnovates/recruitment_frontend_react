@@ -72,7 +72,7 @@ export default function ApplicationDetail() {
                 <div className="label">AI Score</div>
                 <div className="value" style={{
                   fontWeight: 700,
-                  color: application.aiScore >= 70 ? 'var(--success)' : 'var(--text)',
+                  color: application.aiScore >= 70 ? 'var(--success)' : 'var(--text-main)',
                   fontSize: 20
                 }}>
                   {application.aiScore != null ? `${application.aiScore}%` : 'N/A'}

@@ -72,7 +72,7 @@ export default function CandidateDetail() {
               whiteSpace: 'pre-wrap',
               fontSize: 14,
               lineHeight: 1.7,
-              color: 'var(--text)',
+              color: 'var(--text-main)',
               maxHeight: 400,
               overflowY: 'auto'
             }}>
