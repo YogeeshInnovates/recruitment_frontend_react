@@ -31,7 +31,16 @@ export default function Navbar() {
 
   return (
     <div className="navbar">
-      <h2>{title}</h2>
+      <div className="navbar-left">
+        <button
+          className="navbar-menu-btn"
+          onClick={() => document.body.classList.toggle('ud-sidebar-open')}
+          aria-label="Toggle menu"
+        >
+          ☰
+        </button>
+        <h2>{title}</h2>
+      </div>
       <div className="navbar-actions">
         <input
           type="text"
@@ -53,6 +62,7 @@ export default function Navbar() {
           )}
         </div>
       </div>
+      <div className="ud-sidebar-backdrop" onClick={() => document.body.classList.remove('ud-sidebar-open')} />
     </div>
   );
 }

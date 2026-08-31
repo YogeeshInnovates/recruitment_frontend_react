@@ -2452,6 +2452,190 @@ tr:hover td {
   50% { opacity: 0.3; box-shadow: 0 0 0 6px rgba(239, 68, 68, 0); }
 }
 
+/* =====================================================================
+   DESIGN POLISH + RESPONSIVE LAYER  (pure styling - additive, no logic)
+   ===================================================================== */
+
+/* Navbar: hamburger for mobile + left group */
+.navbar-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.navbar-menu-btn {
+  display: none;
+  width: 40px;
+  height: 40px;
+  border: 1px solid var(--border);
+  background: var(--light);
+  color: var(--text);
+  border-radius: 10px;
+  font-size: 20px;
+  line-height: 1;
+  cursor: pointer;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+}
+.navbar-menu-btn:hover { border-color: var(--primary); color: var(--primary); }
+
+/* Sidebar drawer backdrop + slide on mobile */
+.ud-sidebar-backdrop {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(2, 6, 23, 0.5);
+  backdrop-filter: blur(2px);
+  z-index: 99;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+body.ud-sidebar-open .ud-sidebar-backdrop {
+  display: block;
+  opacity: 1;
+}
+body.ud-sidebar-open .sidebar {
+  transform: translateX(0);
+  box-shadow: 0 0 60px rgba(0,0,0,0.5);
+}
+
+/* Scrollbar styling for a cleaner look across the app */
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 10px;
+  border: 2px solid transparent;
+  background-clip: content-box;
+}
+::-webkit-scrollbar-thumb:hover { background: #94a3b8; background-clip: content-box; }
+
+/* Slightly more refined cards / buttons */
+.card { border: 1px solid var(--border-light); }
+.btn { position: relative; }
+.btn-primary {
+  background: linear-gradient(135deg, #2563eb, #7c3aed);
+  border: none;
+  box-shadow: 0 4px 14px rgba(37, 99, 235, 0.25);
+}
+.btn-primary:hover {
+  background: linear-gradient(135deg, #1d4ed8, #6d28d9);
+  transform: translateY(-1px);
+  box-shadow: 0 6px 20px rgba(37, 99, 235, 0.35);
+}
+
+/* ===== Tablet (approx 992px and below) ===== */
+@media (max-width: 992px) {
+  .navbar {
+    padding: 0 16px;
+  }
+  .sidebar {
+    width: 260px;
+    transform: translateX(-100%);
+    box-shadow: 0 0 0 rgba(0,0,0,0);
+  }
+  .sidebar.open {
+    transform: translateX(0);
+  }
+  .navbar-menu-btn {
+    display: inline-flex;
+  }
+  .main-content {
+    margin-left: 0;
+  }
+  .page-content {
+    padding: 24px 20px;
+  }
+  .navbar-search {
+    width: 180px;
+  }
+}
+
+/* ===== Mobile (approx 640px and below) ===== */
+@media (max-width: 640px) {
+  .navbar {
+    height: 60px;
+  }
+  .navbar-search {
+    display: none;
+  }
+  .navbar-name {
+    display: none;
+  }
+  .page-content {
+    padding: 18px 14px;
+  }
+
+  /* Stack multi-column layouts */
+  .rd-hero-cards,
+  .interview-options,
+  .score-grid,
+  .detail-grid,
+  .form-row {
+    grid-template-columns: 1fr !important;
+  }
+
+  .org-setup-card {
+    padding: 32px 22px;
+  }
+
+  .card-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 12px;
+  }
+
+  .actions-row,
+  .abs-actions {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .actions-row .btn,
+  .abs-actions .btn {
+    width: 100%;
+    justify-content: center;
+  }
+
+  /* Interview room: video on top, chat below */
+  .interview-room {
+    grid-template-columns: 1fr;
+    grid-template-rows: 1fr auto;
+    height: auto;
+    min-height: calc(100vh - var(--navbar-height));
+  }
+  .interview-video {
+    min-height: 40vh;
+  }
+  .interview-chat {
+    height: 60vh;
+  }
+
+  .wait-timer { font-size: 44px; }
+  .ud-welcome h1 { font-size: 26px; }
+  .rd-card { padding: 26px 18px; }
+  .bd-stats { grid-template-columns: repeat(2, 1fr); }
+}
+
+/* ===== Very small phones (approx 400px) ===== */
+@media (max-width: 400px) {
+  .navbar-left h2 { font-size: 16px; }
+  .form-group input,
+  .form-group select,
+  .form-group textarea { font-size: 16px; }
+}
+
+/* Better touch targets on small screens */
+@media (hover: none) and (pointer: coarse) {
+  .btn,
+  .navbar-menu-btn,
+  .sidebar-nav a,
+  .chat-input-area button {
+    padding-top: 12px;
+    padding-bottom: 12px;
+  }
+}
+
+
 .bd-score { font-weight: 800; }
 .bd-score.good { color: #16a34a; }
 .bd-score.mid { color: #d97706; }
