@@ -2439,6 +2439,7 @@ tr:hover td {
 .bd-status.bd-processing { background: #ffedd5; color: #c2410c; }
 .bd-status.bd-due { background: #fee2e2; color: #dc2626; }
 .bd-status.bd-scheduled { background: #e2e8f0; color: #475569; }
+.bd-status.bd-canceled { background: #475569; color: #e2e8f0; }
 .bd-dot-red, .bd-dot-green, .bd-dot-orange, .bd-dot-gray {
   width: 9px; height: 9px; border-radius: 50%; display: inline-block;
 }

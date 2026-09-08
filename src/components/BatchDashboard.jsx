@@ -30,6 +30,7 @@ function computeStatus(row, now) {
     const sched = new Date(row.scheduledAt);
     const diffMin = (sched.getTime() - now.getTime()) / 60000;
     if (diffMin <= 0 && diffMin > -30) return 'due';
+    if (diffMin <= -30) return 'canceled';
   }
   return 'scheduled';
 }
@@ -290,7 +291,8 @@ export default function BatchDashboard() {
                           {st === 'due' && <span className="bd-dot-red twinkle" />}
                           {st === 'technical' && <span className="bd-dot-red" />}
                           {st === 'scheduled' && <span className="bd-dot-gray" />}
-                          {st === 'due' ? 'Due Now' : st === 'processing' ? 'Processing' : st === 'over' ? 'Over' : st === 'technical' ? 'Technical Issue' : 'Upcoming'}
+                          {st === 'canceled' && <span className="bd-dot-gray" />}
+                          {st === 'due' ? 'Due Now' : st === 'processing' ? 'Processing' : st === 'over' ? 'Over' : st === 'technical' ? 'Technical Issue' : st === 'canceled' ? 'Canceled' : 'Upcoming'}
                         </span>
                       </td>
                       <td>
@@ -324,6 +326,8 @@ export default function BatchDashboard() {
                             <button className="bd-btn" onClick={() => openReport(r.interviewId, r.name)}>📋 Report</button>
                             <span className="bd-mail" style={{ color: '#ef4444' }}>⚠ Interview interrupted</span>
                           </div>
+                        ) : st === 'canceled' ? (
+                          <span className="bd-mail" style={{ color: '#94a3b8' }}>✕ Canceled — interview never started</span>
                         ) : (
                           <span className="bd-mail">Scheduled — link auto-emailed</span>
                         )}
