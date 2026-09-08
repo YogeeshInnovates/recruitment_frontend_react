@@ -3357,6 +3357,19 @@ tbody tr:hover td { background: transparent !important; color: var(--text-main);
 :root[data-theme="light"] .abs-name { color: #0f172a; }
 
 /* =====================================================================
+   BATCH DASHBOARD (/interview/batch/dashboard) - DARK MODE TEXT FIX
+   Only text colors so candidate name / job / time / email are readable.
+   Light mode is untouched (rules scoped to data-theme="dark").
+   ===================================================================== */
+:root[data-theme="dark"] .bd-table td { color: var(--text-sub); }
+:root[data-theme="dark"] .bd-name { color: #ffffff; }
+:root[data-theme="dark"] .bd-mail { color: var(--text-muted); }
+:root[data-theme="dark"] .bd-job { color: var(--text-main); }
+:root[data-theme="dark"] .bd-round { color: #a78bfa; }
+:root[data-theme="dark"] .bd-date { color: #38bdf8; }
+:root[data-theme="dark"] .bd-time { color: var(--text-sub); }
+
+/* =====================================================================
    TEAM PAGE (/team) - THEME AWARE
    ===================================================================== */
 .tp-title { color: var(--text-main); }
