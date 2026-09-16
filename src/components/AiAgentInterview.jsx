@@ -93,6 +93,7 @@ export default function AiAgentInterview() {
   const [typedAnswer, setTypedAnswer] = useState('');
   const [micLevel, setMicLevel] = useState(0);
   const [micHint, setMicHint] = useState('');
+  const [recordSecLeft, setRecordSecLeft] = useState(0);
   const [mockScore, setMockScore] = useState(null);
   const [mockRecommendation, setMockRecommendation] = useState('');
 
@@ -112,6 +113,7 @@ export default function AiAgentInterview() {
   const clearAnswerWindowRef = useRef(null);
   const transcribeRef = useRef(null);
   const missedCountRef = useRef(0);
+  const recordStreamRef = useRef(null);
   const countdownIntervalRef = useRef(null);
   const videoRef = useRef(null);
   const lastActivityEventRef = useRef({});
@@ -146,8 +148,22 @@ export default function AiAgentInterview() {
       if (idleTimerRef.current) clearTimeout(idleTimerRef.current);
       if (countdownIntervalRef.current) clearInterval(countdownIntervalRef.current);
       if (recordLimitTimerRef.current) clearTimeout(recordLimitTimerRef.current);
+      if (recordStreamRef.current) {
+        recordStreamRef.current.getTracks().forEach(t => { try { t.stop(); } catch (e) {} });
+        recordStreamRef.current = null;
+      }
     };
   }, []);
+
+  useEffect(() => {
+    if (!isListening) {
+      setRecordSecLeft(0);
+      return;
+    }
+    setRecordSecLeft(10 * 60);
+    const t = setInterval(() => setRecordSecLeft(s => (s > 0 ? s - 1 : s)), 1000);
+    return () => clearInterval(t);
+  }, [isListening]);
 
   const logActivity = useCallback((eventType, detail) => {
     try {
@@ -435,10 +451,8 @@ export default function AiAgentInterview() {
     setIsListening(true);
     setMicActive(true);
     try {
-      let stream = videoStreamRef.current;
-      if (!stream || !stream.getAudioTracks().length) {
-        stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      }
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      recordStreamRef.current = stream;
       const options = typeof MediaRecorder !== 'undefined' && MediaRecorder.isTypeSupported('audio/webm')
         ? { mimeType: 'audio/webm' }
         : undefined;
@@ -448,6 +462,10 @@ export default function AiAgentInterview() {
         if (e.data && e.data.size > 0) audioChunksRef.current.push(e.data);
       };
       recorder.onstop = () => {
+        if (recordStreamRef.current) {
+          recordStreamRef.current.getTracks().forEach(t => { try { t.stop(); } catch (e) {} });
+          recordStreamRef.current = null;
+        }
         if (phaseRef.current === 'active' && !isProcessingRef.current && transcribeRef.current) {
           transcribeRef.current();
         }
@@ -467,7 +485,7 @@ export default function AiAgentInterview() {
       console.log('Mic start error:', e);
       setIsListening(false);
       setMicActive(false);
-      setMicHint('Could not access the microphone. Please allow mic access in your browser and click Start again.');
+      setMicHint('Could not start recording. Please allow microphone access in the browser and click Start again.');
     }
   }, [clearAnswerWindow]);
 
@@ -1439,42 +1457,40 @@ export default function AiAgentInterview() {
           <div ref={messagesEndRef} />
         </div>
 
-        <div className="chat-input-area" style={{
-          justifyContent: 'center', padding: '16px 20px',
-          background: 'rgba(15, 23, 42, 0.8)', flexWrap: 'wrap',
-        }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-            <button
-              onClick={isListening ? stopMic : startMic}
-              disabled={isTranscribing || phase !== 'active'}
-              aria-label={isListening ? 'Stop and submit answer' : 'Start recording answer'}
-              className={`mic-btn${isListening ? ' recording' : ''}`}
-              style={{
-                width: 96, height: 44, borderRadius: 24,
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                fontSize: 15, fontWeight: 700, letterSpacing: 0.5,
-                color: 'white', border: 'none',
-                boxShadow: isListening ? '0 0 20px rgba(239, 68, 68, 0.5)' : '0 0 20px rgba(16, 185, 129, 0.5)',
-              }}
-            >
-              {isTranscribing ? '...' : isListening ? 'Stop' : 'Start'}
-            </button>
+        {(phase === 'active' && (isListening || isTranscribing || countdown !== null)) && (
+          <div className="chat-input-area" style={{
+            flexDirection: 'column', alignItems: 'center', gap: 10, padding: '16px 20px',
+            background: 'rgba(15, 23, 42, 0.8)',
+          }}>
             <div style={{ color: '#94a3b8', fontSize: 14 }}>
               {isTranscribing
                 ? 'Processing your answer...'
                 : isListening
-                  ? 'Listening...'
-                  : countdown !== null
-                    ? `Start recording in ${countdown}s...`
-                    : aiSpeaking ? 'AI is speaking...' : 'Connecting...'}
+                  ? `Listening... ${Math.floor(recordSecLeft / 60)}:${String(recordSecLeft % 60).padStart(2, '0')} remaining`
+                  : `Start recording in ${countdown}s...`}
             </div>
+            {!isTranscribing && (
+              <button
+                onClick={isListening ? stopMic : startMic}
+                aria-label={isListening ? 'Stop and submit answer' : 'Start recording answer'}
+                className={`mic-btn${isListening ? ' recording' : ''}`}
+                style={{
+                  width: 110, height: 46, borderRadius: 24,
+                  fontSize: 16, fontWeight: 700, letterSpacing: 0.5,
+                  color: 'white', border: 'none', cursor: 'pointer',
+                  boxShadow: isListening ? '0 0 20px rgba(239, 68, 68, 0.5)' : '0 0 20px rgba(16, 185, 129, 0.5)',
+                }}
+              >
+                {isListening ? 'Stop' : 'Start'}
+              </button>
+            )}
+            {micHint && (
+              <div style={{ color: '#f87171', fontSize: 13, textAlign: 'center' }}>
+                {micHint}
+              </div>
+            )}
           </div>
-          {micHint && (
-            <div style={{ width: '100%', textAlign: 'center', color: '#f87171', fontSize: 13, marginTop: 8 }}>
-              {micHint}
-            </div>
-          )}
-        </div>
+        )}
       </div>
     </div>
   );
