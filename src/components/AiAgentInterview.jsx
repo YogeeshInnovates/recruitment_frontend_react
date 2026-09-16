@@ -110,6 +110,7 @@ export default function AiAgentInterview() {
   const stopMicRef = useRef(null);
   const clearAnswerWindowRef = useRef(null);
   const transcribeRef = useRef(null);
+  const missedCountRef = useRef(0);
   const countdownIntervalRef = useRef(null);
   const videoRef = useRef(null);
   const lastActivityEventRef = useRef({});
@@ -345,14 +346,25 @@ export default function AiAgentInterview() {
     countdownCompleteRef.current = null;
   }, []);
 
+  const handleQuestionTimeout = useCallback(() => {
+    clearAnswerWindow();
+    if (phaseRef.current !== 'active' || isProcessingRef.current) return;
+    missedCountRef.current += 1;
+    sendToAIRef.current(
+      missedCountRef.current >= 3
+        ? 'No answer received, end the interview'
+        : 'No answer received, let me ask something else'
+    );
+  }, [clearAnswerWindow]);
+
   const enterAnswerWindow = useCallback(() => {
     clearAnswerWindow();
     if (phaseRef.current !== 'active' || isProcessingRef.current) return;
     setCountdown(10);
     let sec = 10;
     countdownCompleteRef.current = () => {
-      if (phaseRef.current === 'active' && !isProcessingRef.current && startMicRef.current) {
-        startMicRef.current();
+      if (phaseRef.current === 'active' && !isProcessingRef.current) {
+        handleQuestionTimeout();
       }
     };
     countdownIntervalRef.current = setInterval(() => {
@@ -367,7 +379,7 @@ export default function AiAgentInterview() {
         if (cb) cb();
       }
     }, 1000);
-  }, [clearAnswerWindow]);
+  }, [clearAnswerWindow, handleQuestionTimeout]);
 
   const transcribeAnswer = useCallback(async () => {
     if (recordLimitTimerRef.current) {
@@ -398,6 +410,7 @@ export default function AiAgentInterview() {
       setIsTranscribing(false);
       if (phaseRef.current !== 'active') return;
       if (text) {
+        missedCountRef.current = 0;
         setCandidateSpeech(text);
         setShowSubtitle(text);
         setMicBlocked(false);
@@ -410,8 +423,6 @@ export default function AiAgentInterview() {
     } catch (err) {
       console.error('Transcribe error:', err);
       setIsTranscribing(false);
-      setMicBlocked(true);
-      setShowTextInput(true);
     }
   }, [interviewId]);
 
@@ -451,8 +462,6 @@ export default function AiAgentInterview() {
       }, 10 * 60 * 1000);
     } catch (e) {
       console.log('Mic start error:', e);
-      setMicBlocked(true);
-      setShowTextInput(true);
     }
   }, [clearAnswerWindow]);
 
@@ -1424,76 +1433,34 @@ export default function AiAgentInterview() {
           <div ref={messagesEndRef} />
         </div>
 
-        {micBlocked && (
-          <div style={{
-            margin: '0 16px 8px', padding: '10px 14px', borderRadius: 10,
-            background: '#451a03', border: '1px solid #b45309', color: '#fbbf24',
-            fontSize: 13, lineHeight: 1.5, textAlign: 'center',
-          }}>
-            ⚠ Your microphone may not be working. Please check your browser mic permissions, or type your answer below.
-          </div>
-        )}
-
         <div className="chat-input-area" style={{
           justifyContent: 'center', padding: '16px 20px',
           background: 'rgba(15, 23, 42, 0.8)',
         }}>
-          {showTextInput ? (
-            <div style={{ display: 'flex', gap: 8, width: '100%' }}>
-              <input
-                type="text"
-                value={typedAnswer}
-                onChange={(e) => setTypedAnswer(e.target.value)}
-                onKeyDown={(e) => { if (e.key === 'Enter') submitTypedAnswer(); }}
-                placeholder="Type your answer here..."
-                autoFocus
-                style={{
-                  flex: 1, padding: '12px 16px', borderRadius: 10, border: '1px solid #334155',
-                  background: '#0f172a', color: 'white', fontSize: 14, outline: 'none',
-                }}
-              />
-              <button
-                onClick={submitTypedAnswer}
-                disabled={!typedAnswer.trim()}
-                style={{
-                  padding: '12px 20px', borderRadius: 10, border: 'none',
-                  background: typedAnswer.trim() ? '#10b981' : '#334155',
-                  color: 'white', fontSize: 14, fontWeight: 600, cursor: typedAnswer.trim() ? 'pointer' : 'not-allowed',
-                }}
-              >
-                Send
-              </button>
-            </div>
-          ) : (
-            <div style={{
-              display: 'flex', alignItems: 'center', gap: 12, width: '100%', justifyContent: 'center',
-            }}>
-              <div
-                onClick={isTranscribing || isListening ? stopMic : startMic}
-                role="button"
-                aria-label={isListening ? 'Stop and submit answer' : 'Start recording answer'}
-                style={{
-                  width: 56, height: 56, borderRadius: '50%',
-                  background: isListening ? '#ef4444' : '#10b981',
-                  display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  fontSize: 24, color: 'white', cursor: 'pointer',
-                  boxShadow: isListening ? '0 0 20px rgba(239, 68, 68, 0.5)' : '0 0 20px rgba(16, 185, 129, 0.5)',
-                  animation: isListening ? 'pulse 1s infinite' : 'none',
-                }}
-              >
-                {isListening ? '🎙' : '🔇'}
-              </div>
-              <div style={{ color: '#94a3b8', fontSize: 14 }}>
-                {isTranscribing
-                  ? 'Processing your answer...'
-                  : isListening
-                    ? 'Click to stop & submit'
-                    : countdown !== null
-                      ? `Start recording in ${countdown}s...`
-                      : aiSpeaking ? 'AI is speaking...' : 'Connecting...'}
-              </div>
-            </div>
-          )}
+          <button
+            onClick={isListening ? stopMic : startMic}
+            disabled={isTranscribing || phase !== 'active'}
+            aria-label={isListening ? 'Stop and submit answer' : 'Start recording answer'}
+            className={`mic-btn${isListening ? ' recording' : ''}`}
+            style={{
+              width: 96, height: 44, borderRadius: 24,
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              fontSize: 15, fontWeight: 700, letterSpacing: 0.5,
+              color: 'white', border: 'none',
+              boxShadow: isListening ? '0 0 20px rgba(239, 68, 68, 0.5)' : '0 0 20px rgba(16, 185, 129, 0.5)',
+            }}
+          >
+            {isTranscribing ? '...' : isListening ? 'Stop' : 'Start'}
+          </button>
+          <div style={{ color: '#94a3b8', fontSize: 14 }}>
+            {isTranscribing
+              ? 'Processing your answer...'
+              : isListening
+                ? 'Listening...'
+                : countdown !== null
+                  ? `Start recording in ${countdown}s...`
+                  : aiSpeaking ? 'AI is speaking...' : 'Connecting...'}
+          </div>
         </div>
       </div>
     </div>
