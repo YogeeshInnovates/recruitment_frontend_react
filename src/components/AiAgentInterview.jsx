@@ -66,6 +66,7 @@ export default function AiAgentInterview() {
   const [aiSpeaking, setAiSpeaking] = useState(false);
   const [micActive, setMicActive] = useState(false);
   const [isListening, setIsListening] = useState(false);
+  const [isTranscribing, setIsTranscribing] = useState(false);
   const [error, setError] = useState('');
   const [candidateSpeech, setCandidateSpeech] = useState('');
   const [showSubtitle, setShowSubtitle] = useState('');
@@ -95,20 +96,21 @@ export default function AiAgentInterview() {
   const [mockRecommendation, setMockRecommendation] = useState('');
 
   const messagesEndRef = useRef(null);
-  const recognitionRef = useRef(null);
+  const mediaRecorderRef = useRef(null);
+  const audioChunksRef = useRef([]);
+  const recordLimitTimerRef = useRef(null);
   const timerRef = useRef(null);
   const idleTimerRef = useRef(null);
   const conversationHistoryRef = useRef([]);
   const questionCountRef = useRef(0);
   const phaseRef = useRef('loading');
   const isProcessingRef = useRef(false);
-  const noSpeechCountRef = useRef(0);
-  const consecutiveSilenceRef = useRef(0);
-  const accumulatedTranscriptRef = useRef('');
-  const lastSpeechRef = useRef('');
   const sendToAIRef = useRef(null);
+  const startMicRef = useRef(null);
+  const stopMicRef = useRef(null);
+  const clearAnswerWindowRef = useRef(null);
+  const transcribeRef = useRef(null);
   const countdownIntervalRef = useRef(null);
-  const countdownDebounceRef = useRef(null);
   const videoRef = useRef(null);
   const lastActivityEventRef = useRef({});
   const lastEvidenceAtRef = useRef({});
@@ -118,7 +120,6 @@ export default function AiAgentInterview() {
   const turnCountRef = useRef(0);
   const meshWarningShownRef = useRef(false);
   const meshStartedRef = useRef(false);
-  const speechFailCountRef = useRef(0);
   const audioContextRef = useRef(null);
   const audioAnalyserRef = useRef(null);
   const secondVoiceIntervalRef = useRef(null);
@@ -142,7 +143,7 @@ export default function AiAgentInterview() {
     return () => {
       if (idleTimerRef.current) clearTimeout(idleTimerRef.current);
       if (countdownIntervalRef.current) clearInterval(countdownIntervalRef.current);
-      if (countdownDebounceRef.current) clearTimeout(countdownDebounceRef.current);
+      if (recordLimitTimerRef.current) clearTimeout(recordLimitTimerRef.current);
     };
   }, []);
 
@@ -316,12 +317,17 @@ export default function AiAgentInterview() {
   }, [interviewId, isMonitor, phase, logActivity, uploadEvidence]);
 
   const stopMic = useCallback(() => {
-    if (recognitionRef.current) {
-      try { recognitionRef.current.stop(); } catch (e) {}
+    if (recordLimitTimerRef.current) {
+      clearTimeout(recordLimitTimerRef.current);
+      recordLimitTimerRef.current = null;
+    }
+    if (clearAnswerWindowRef.current) clearAnswerWindowRef.current();
+    const recorder = mediaRecorderRef.current;
+    if (recorder && recorder.state === 'recording') {
+      try { recorder.stop(); } catch (e) {}
     }
     setIsListening(false);
     setMicActive(false);
-    clearCountdown();
     if (idleTimerRef.current) {
       clearTimeout(idleTimerRef.current);
       idleTimerRef.current = null;
@@ -330,104 +336,130 @@ export default function AiAgentInterview() {
 
   const countdownCompleteRef = useRef(null);
 
-  const clearCountdown = () => {
+  const clearAnswerWindow = useCallback(() => {
     setCountdown(null);
     if (countdownIntervalRef.current) {
       clearInterval(countdownIntervalRef.current);
       countdownIntervalRef.current = null;
     }
-    if (countdownDebounceRef.current) {
-      clearTimeout(countdownDebounceRef.current);
-      countdownDebounceRef.current = null;
-    }
     countdownCompleteRef.current = null;
-  };
+  }, []);
 
-  const startCountdown = () => {
+  const enterAnswerWindow = useCallback(() => {
+    clearAnswerWindow();
+    if (phaseRef.current !== 'active' || isProcessingRef.current) return;
     setCountdown(10);
-    if (countdownIntervalRef.current) clearInterval(countdownIntervalRef.current);
     let sec = 10;
-    countdownCompleteRef.current = () => {};
+    countdownCompleteRef.current = () => {
+      if (phaseRef.current === 'active' && !isProcessingRef.current && startMicRef.current) {
+        startMicRef.current();
+      }
+    };
     countdownIntervalRef.current = setInterval(() => {
       sec -= 1;
       setCountdown(sec);
       if (sec <= 0) {
         clearInterval(countdownIntervalRef.current);
         countdownIntervalRef.current = null;
+        const cb = countdownCompleteRef.current;
         countdownCompleteRef.current = null;
+        setCountdown(null);
+        if (cb) cb();
       }
     }, 1000);
-  };
+  }, [clearAnswerWindow]);
 
-  const scheduleCountdown = () => {
-    if (countdownDebounceRef.current) clearTimeout(countdownDebounceRef.current);
-    countdownDebounceRef.current = setTimeout(() => {
-      setCountdown(10);
-      if (countdownIntervalRef.current) clearInterval(countdownIntervalRef.current);
-      let sec = 10;
-      countdownIntervalRef.current = setInterval(() => {
-        sec -= 1;
-        setCountdown(sec);
-        if (sec <= 0) {
-          clearInterval(countdownIntervalRef.current);
-          countdownIntervalRef.current = null;
-        }
-      }, 1000);
-    }, 5000);
-  };
-
-  const idleTimerCallback = useCallback(() => {
-    clearCountdown();
-    if (phaseRef.current === 'active' && !isProcessingRef.current && sendToAIRef.current) {
-      const accumulated = accumulatedTranscriptRef.current.trim();
-      if (accumulated) {
-        accumulatedTranscriptRef.current = '';
-        setMicBlocked(false);
-        setShowTextInput(false);
-        sendToAIRef.current(accumulated);
-      } else if (lastSpeechRef.current.trim()) {
-        const speech = lastSpeechRef.current.trim();
-        lastSpeechRef.current = '';
-        setMicBlocked(false);
-        setShowTextInput(false);
-        sendToAIRef.current(speech);
-      } else {
-        consecutiveSilenceRef.current += 1;
-        speechFailCountRef.current += 1;
-        if (consecutiveSilenceRef.current >= 3) {
-          sendToAIRef.current("No answer received, end the interview");
-        } else if (consecutiveSilenceRef.current >= 2) {
-          setMicBlocked(true);
-          setShowTextInput(true);
-          sendToAIRef.current("No answer received, let me ask something else");
-        } else {
-          sendToAIRef.current("No answer received, ask me to repeat");
-        }
-      }
+  const transcribeAnswer = useCallback(async () => {
+    if (recordLimitTimerRef.current) {
+      clearTimeout(recordLimitTimerRef.current);
+      recordLimitTimerRef.current = null;
     }
-  }, []);
-
-  const startMic = useCallback((clearTranscript = true) => {
-    if (!recognitionRef.current || isProcessingRef.current) return;
-    if (clearTranscript) {
-      setCandidateSpeech('');
-      setShowSubtitle('');
-      lastSpeechRef.current = '';
-      accumulatedTranscriptRef.current = '';
+    setIsListening(false);
+    setMicActive(false);
+    setIsTranscribing(true);
+    const chunks = audioChunksRef.current;
+    audioChunksRef.current = [];
+    if (!chunks.length) {
+      setIsTranscribing(false);
+      return;
     }
+    const blob = new Blob(chunks, { type: 'audio/webm' });
     try {
-      recognitionRef.current.start();
+      const fd = new FormData();
+      fd.append('file', blob, 'recording.webm');
+      const res = await fetch(`${API_URL}/api/interview/${interviewId}/transcribe`, {
+        method: 'POST',
+        headers: { ...authHeaders() },
+        body: fd,
+      });
+      if (!res.ok) throw new Error('Transcription failed');
+      const data = await res.json();
+      const text = (data.transcript || '').trim();
+      setIsTranscribing(false);
+      if (phaseRef.current !== 'active') return;
+      if (text) {
+        setCandidateSpeech(text);
+        setShowSubtitle(text);
+        setMicBlocked(false);
+        setShowTextInput(false);
+        sendToAIRef.current(text);
+      } else {
+        setShowSubtitle('');
+        sendToAIRef.current('No answer received, ask me to repeat');
+      }
+    } catch (err) {
+      console.error('Transcribe error:', err);
+      setIsTranscribing(false);
+      setMicBlocked(true);
+      setShowTextInput(true);
+    }
+  }, [interviewId]);
+
+  const startMic = useCallback(async () => {
+    clearAnswerWindow();
+    if (isProcessingRef.current) return;
+    try {
+      let stream = videoStreamRef.current;
+      if (!stream || !stream.getAudioTracks().length) {
+        stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      }
+      const options = typeof MediaRecorder !== 'undefined' && MediaRecorder.isTypeSupported('audio/webm')
+        ? { mimeType: 'audio/webm' }
+        : undefined;
+      const recorder = new MediaRecorder(stream, options);
+      audioChunksRef.current = [];
+      recorder.ondataavailable = (e) => {
+        if (e.data && e.data.size > 0) audioChunksRef.current.push(e.data);
+      };
+      recorder.onstop = () => {
+        if (phaseRef.current === 'active' && !isProcessingRef.current && transcribeRef.current) {
+          transcribeRef.current();
+        }
+      };
+      recorder.start();
+      mediaRecorderRef.current = recorder;
       setIsListening(true);
       setMicActive(true);
+      setIsTranscribing(false);
       setMicBlocked(false);
       setShowTextInput(false);
-      setCountdown(null);
-      if (idleTimerRef.current) clearTimeout(idleTimerRef.current);
-      idleTimerRef.current = setTimeout(idleTimerCallback, 12000);
+      setCandidateSpeech('');
+      setShowSubtitle('');
+      if (recordLimitTimerRef.current) clearTimeout(recordLimitTimerRef.current);
+      recordLimitTimerRef.current = setTimeout(() => {
+        if (stopMicRef.current) stopMicRef.current();
+      }, 10 * 60 * 1000);
     } catch (e) {
       console.log('Mic start error:', e);
+      setMicBlocked(true);
+      setShowTextInput(true);
     }
-  }, []);
+  }, [clearAnswerWindow]);
+
+  clearAnswerWindowRef.current = clearAnswerWindow;
+  stopMicRef.current = stopMic;
+  startMicRef.current = startMic;
+  transcribeRef.current = transcribeAnswer;
 
   const finishInterview = useCallback(async () => {
     if (!isMock) {
@@ -520,7 +552,7 @@ export default function AiAgentInterview() {
 
         if (phaseRef.current === 'active') {
           setTimeout(() => {
-            if (phaseRef.current === 'active' && !isProcessingRef.current) startMic();
+            if (phaseRef.current === 'active' && !isProcessingRef.current) enterAnswerWindow();
           }, 3000);
         }
       }
@@ -533,11 +565,11 @@ export default function AiAgentInterview() {
       await speak(fallback);
       setAiSpeaking(false);
       setShowSubtitle('');
-      setTimeout(() => { if (phaseRef.current === 'active') startMic(); }, 3000);
+      setTimeout(() => { if (phaseRef.current === 'active') enterAnswerWindow(); }, 3000);
     } finally {
       isProcessingRef.current = false;
     }
-  }, [interviewId, stopMic, startMic, finishInterview]);
+  }, [interviewId, stopMic, enterAnswerWindow, finishInterview]);
 
   sendToAIRef.current = sendToAI;
 
@@ -548,107 +580,17 @@ export default function AiAgentInterview() {
     setShowTextInput(false);
     setMicBlocked(false);
     stopMic();
-    accumulatedTranscriptRef.current = '';
-    lastSpeechRef.current = '';
     sendToAIRef.current(text);
   }, [typedAnswer, stopMic]);
 
   useEffect(() => {
     if (isMonitor) return;
-    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-    if (!SpeechRecognition) {
+    if (typeof MediaRecorder === 'undefined') {
       setSpeechSupported(false);
       return;
     }
     setSpeechSupported(true);
-
-    const recognition = new SpeechRecognition();
-    recognition.continuous = true;
-    recognition.interimResults = true;
-    recognition.lang = 'en-US';
-
-    recognition.onresult = (event) => {
-      let newFinal = '';
-      let interimTranscript = '';
-
-      for (let i = event.resultIndex; i < event.results.length; i++) {
-        const transcript = event.results[i][0].transcript;
-        if (event.results[i].isFinal) {
-          newFinal += transcript;
-        } else {
-          interimTranscript += transcript;
-        }
-      }
-
-      if (newFinal) {
-        accumulatedTranscriptRef.current += newFinal + ' ';
-        noSpeechCountRef.current = 0;
-        consecutiveSilenceRef.current = 0;
-        speechFailCountRef.current = 0;
-        lastSpeechRef.current = '';
-      } else if (interimTranscript) {
-        lastSpeechRef.current = interimTranscript;
-        consecutiveSilenceRef.current = 0;
-        speechFailCountRef.current = 0;
-      }
-
-      if (newFinal || interimTranscript) {
-        if (countdownDebounceRef.current) {
-          clearTimeout(countdownDebounceRef.current);
-          countdownDebounceRef.current = null;
-        }
-        setCountdown(null);
-        if (countdownIntervalRef.current) {
-          clearInterval(countdownIntervalRef.current);
-          countdownIntervalRef.current = null;
-        }
-      }
-
-      if ((newFinal || interimTranscript) && idleTimerRef.current) {
-        clearTimeout(idleTimerRef.current);
-        setCountdown(null);
-        idleTimerRef.current = setTimeout(idleTimerCallback, 12000);
-      }
-
-      const displayText = accumulatedTranscriptRef.current.trim() || interimTranscript;
-      setCandidateSpeech(displayText);
-      setShowSubtitle(displayText);
-    };
-
-    recognition.onerror = (event) => {
-      console.log('Speech recognition error:', event.error);
-      if (event.error === 'aborted') {
-        if (!isProcessingRef.current && phaseRef.current === 'active') {
-          setTimeout(() => startMic(false), 500);
-        }
-      } else if (event.error === 'no-speech') {
-        speechFailCountRef.current += 1;
-        if (speechFailCountRef.current >= 2 && phaseRef.current === 'active') {
-          setMicBlocked(true);
-        }
-      } else if (event.error === 'not-allowed' || event.error === 'audio-capture' || event.error === 'service-not-allowed') {
-        speechFailCountRef.current += 1;
-        if (phaseRef.current === 'active') {
-          setMicBlocked(true);
-          setShowTextInput(true);
-        }
-      }
-    };
-
-    recognition.onend = () => {
-      if (phaseRef.current === 'active' && !isProcessingRef.current) {
-        setTimeout(() => {
-          if (phaseRef.current === 'active' && !isProcessingRef.current) startMic(false);
-        }, 300);
-      }
-    };
-
-    recognitionRef.current = recognition;
-
-    return () => {
-      try { recognition.stop(); } catch (e) {}
-    };
-  }, [sendToAI, startMic, isMonitor]);
+  }, [isMonitor]);
 
   const beginInterview = useCallback(async (data) => {
     if (hasStartedRef.current) return;
@@ -689,13 +631,13 @@ export default function AiAgentInterview() {
       setAiSpeaking(false);
       setShowSubtitle('');
 
-      setTimeout(() => startMic(), 3000);
+      setTimeout(() => enterAnswerWindow(), 3000);
     } catch (err) {
       hasStartedRef.current = false;
       setError('Failed to start interview: ' + err.message);
       setPhase('error');
     }
-  }, [interviewId, startMic]);
+  }, [interviewId, enterAnswerWindow]);
   beginRef.current = beginInterview;
 
   useEffect(() => {
@@ -832,7 +774,7 @@ export default function AiAgentInterview() {
 
   useEffect(() => {
     if (phase === 'complete' || phase === 'error') {
-      try { if (recognitionRef.current) recognitionRef.current.stop(); } catch (e) {}
+      try { if (mediaRecorderRef.current && mediaRecorderRef.current.state === 'recording') mediaRecorderRef.current.stop(); } catch (e) {}
       setIsListening(false);
       setMicActive(false);
       if (videoStream) {
@@ -979,8 +921,8 @@ export default function AiAgentInterview() {
       videoStreamRef.current = null;
       setVideoStream(null);
     }
-    if (recognitionRef.current) {
-      try { recognitionRef.current.stop(); } catch (e) {}
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state === 'recording') {
+      try { mediaRecorderRef.current.stop(); } catch (e) {}
     }
     stopMic();
     if (audioContextRef.current && audioContextRef.current.state !== 'closed') {
@@ -1380,7 +1322,7 @@ export default function AiAgentInterview() {
             {aiSpeaking ? '🔊' : isListening ? '🎙' : '🤖'}
           </div>
           <div style={{ fontSize: 20, fontWeight: 600, marginBottom: 8 }}>
-            {aiSpeaking ? 'AI is speaking...' : isListening ? 'Listening to you...' : 'AI Interviewer'}
+            {aiSpeaking ? 'AI is speaking...' : isListening ? 'Recording your answer...' : 'AI Interviewer'}
           </div>
           <div style={{ fontSize: 14, color: '#94a3b8' }}>
             {interviewData?.candidateName || 'Candidate'} · {interviewData?.round || ''}
@@ -1418,9 +1360,17 @@ export default function AiAgentInterview() {
 
         <div className="ai-status">
           <span className="dot" style={{
-            background: isListening ? '#ef4444' : aiSpeaking ? '#10b981' : '#8b5cf6'
+            background: isTranscribing ? '#f59e0b' : isListening ? '#ef4444' : aiSpeaking ? '#10b981' : '#8b5cf6'
           }}></span>
-          {aiSpeaking ? 'AI Speaking' : isListening ? (countdown !== null ? `Auto-advancing in ${countdown}s` : 'Your Turn - Speak Now') : 'Connecting...'}
+          {aiSpeaking
+            ? 'AI Speaking'
+            : isTranscribing
+              ? 'Transcribing your answer...'
+              : isListening
+                ? 'Recording - click mic to stop & submit'
+                : countdown !== null
+                  ? `Start recording in ${countdown}s...`
+                  : 'Connecting...'}
         </div>
 
         {phase === 'complete' && (
@@ -1471,14 +1421,6 @@ export default function AiAgentInterview() {
               <div className="bubble">{msg.content}</div>
             </div>
           ))}
-          {isListening && candidateSpeech && (
-            <div className="chat-message candidate">
-              <div className="avatar">👤</div>
-              <div className="bubble" style={{ opacity: 0.7, fontStyle: 'italic' }}>
-                {candidateSpeech}...
-              </div>
-            </div>
-          )}
           <div ref={messagesEndRef} />
         </div>
 
@@ -1526,18 +1468,29 @@ export default function AiAgentInterview() {
             <div style={{
               display: 'flex', alignItems: 'center', gap: 12, width: '100%', justifyContent: 'center',
             }}>
-              <div style={{
-                width: 56, height: 56, borderRadius: '50%',
-                background: isListening ? '#ef4444' : '#10b981',
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                fontSize: 24, color: 'white', cursor: 'pointer',
-                boxShadow: isListening ? '0 0 20px rgba(239, 68, 68, 0.5)' : '0 0 20px rgba(16, 185, 129, 0.5)',
-                animation: isListening ? 'pulse 1s infinite' : 'none',
-              }}>
+              <div
+                onClick={isTranscribing || isListening ? stopMic : startMic}
+                role="button"
+                aria-label={isListening ? 'Stop and submit answer' : 'Start recording answer'}
+                style={{
+                  width: 56, height: 56, borderRadius: '50%',
+                  background: isListening ? '#ef4444' : '#10b981',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  fontSize: 24, color: 'white', cursor: 'pointer',
+                  boxShadow: isListening ? '0 0 20px rgba(239, 68, 68, 0.5)' : '0 0 20px rgba(16, 185, 129, 0.5)',
+                  animation: isListening ? 'pulse 1s infinite' : 'none',
+                }}
+              >
                 {isListening ? '🎙' : '🔇'}
               </div>
               <div style={{ color: '#94a3b8', fontSize: 14 }}>
-                {isListening ? 'Speak now - auto-submits after silence' : aiSpeaking ? 'AI is speaking...' : 'Connecting...'}
+                {isTranscribing
+                  ? 'Processing your answer...'
+                  : isListening
+                    ? 'Click to stop & submit'
+                    : countdown !== null
+                      ? `Start recording in ${countdown}s...`
+                      : aiSpeaking ? 'AI is speaking...' : 'Connecting...'}
               </div>
             </div>
           )}
