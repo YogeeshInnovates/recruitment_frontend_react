@@ -113,6 +113,7 @@ export default function AiAgentInterview() {
   const clearAnswerWindowRef = useRef(null);
   const transcribeRef = useRef(null);
   const missedCountRef = useRef(0);
+  const nudgeCountRef = useRef(0);
   const recordStreamRef = useRef(null);
   const countdownIntervalRef = useRef(null);
   const videoRef = useRef(null);
@@ -429,6 +430,7 @@ export default function AiAgentInterview() {
       if (phaseRef.current !== 'active') return;
       if (text) {
         missedCountRef.current = 0;
+        nudgeCountRef.current = 0;
         setCandidateSpeech(text);
         setShowSubtitle(text);
         setMicBlocked(false);
@@ -565,22 +567,62 @@ export default function AiAgentInterview() {
         setMessages(prev => [...prev, { role: 'ai', content: aiReply }]);
         setQuestionCount(questionCountRef.current);
 
+        const endPhrases = ['interview is now complete', 'thank you for your time', "we'll review", "we'll let you know", 'get back to you'];
+        const isEndingReply = data.is_finished || endPhrases.some(p => aiReply.toLowerCase().includes(p));
+
         setAiSpeaking(true);
         setShowSubtitle(aiReply);
         await speak(aiReply);
         setAiSpeaking(false);
         setShowSubtitle('');
 
-        if (data.is_finished ||
-            aiReply.toLowerCase().includes('interview is now complete') ||
-            aiReply.toLowerCase().includes('thank you for your time') ||
-            aiReply.toLowerCase().includes("we'll review") ||
-            aiReply.toLowerCase().includes("we'll let you know") ||
-            aiReply.toLowerCase().includes("get back to you")) {
+        if (isEndingReply) {
           setPhase('complete');
           phaseRef.current = 'complete';
           await finishInterview();
           return;
+        }
+
+        const needsNudge = !/[?？]/.test(aiReply) && nudgeCountRef.current < 2;
+        if (needsNudge && phaseRef.current === 'active') {
+          nudgeCountRef.current += 1;
+          const nudgeMsg = 'Please ask me the next question.';
+          const nudgeHistory = [...conversationHistoryRef.current, { role: 'user', content: nudgeMsg }];
+          conversationHistoryRef.current = nudgeHistory;
+          questionCountRef.current += 1;
+          setMessages(prev => [...prev, { role: 'candidate', content: nudgeMsg }]);
+          setQuestionCount(questionCountRef.current);
+          try {
+            const nudgeRes = await fetch(chatUrl, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json', ...authHeaders() },
+              body: JSON.stringify({
+                message: nudgeMsg,
+                conversationHistory: nudgeHistory,
+                questionNumber: questionCountRef.current,
+              }),
+            });
+            const nudgeData = await nudgeRes.json();
+            const nudgeReply = (nudgeData && nudgeData.response) || '';
+            if (nudgeReply) {
+              conversationHistoryRef.current = [...nudgeHistory, { role: 'assistant', content: nudgeReply }];
+              setMessages(prev => [...prev, { role: 'ai', content: nudgeReply }]);
+              setQuestionCount(questionCountRef.current);
+              if (nudgeData.is_finished || endPhrases.some(p => nudgeReply.toLowerCase().includes(p))) {
+                setPhase('complete');
+                phaseRef.current = 'complete';
+                await finishInterview();
+                return;
+              }
+              setAiSpeaking(true);
+              setShowSubtitle(nudgeReply);
+              await speak(nudgeReply);
+              setAiSpeaking(false);
+              setShowSubtitle('');
+            }
+          } catch (e) {
+            console.error('Nudge error:', e);
+          }
         }
 
         if (phaseRef.current === 'active') {
@@ -613,6 +655,7 @@ export default function AiAgentInterview() {
     setShowTextInput(false);
     setMicBlocked(false);
     stopMic();
+    nudgeCountRef.current = 0;
     sendToAIRef.current(text);
   }, [typedAnswer, stopMic]);
 
